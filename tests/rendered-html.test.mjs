@@ -1,91 +1,112 @@
 import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-const templateRoot = new URL("../", import.meta.url);
-const previewRoot = new URL("../app/_sites-preview/", import.meta.url);
-
-async function render() {
+async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
+    new Request(`http://localhost${pathname}`, {
+      headers: { accept: "text/html", host: "localhost" },
     }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
+    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    { waitUntil() {}, passThroughOnException() {} },
   );
 }
 
-test("server-renders the starter loading skeleton", async () => {
+const navLabels = [
+  "วันนี้",
+  "สิ่งที่ต้องทำ",
+  "ออเดอร์",
+  "ข้อความลูกค้า",
+  "สินค้าและสต๊อก",
+  "ลูกค้า",
+  "การเติบโต",
+  "การเงิน",
+];
+
+test("server-renders the Pinto seller dashboard", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Your site is taking shape<\/title>/i);
-  assert.match(html, /Building your site/);
-  assert.match(html, /Your site is taking shape/);
-  assert.match(
-    html,
-    /Your first version will appear here automatically when it’s ready\./,
-  );
-  assert.doesNotMatch(html, /Codex/);
-  assert.match(html, /react-loading-skeleton/);
-  assert.match(html, /role="status"/);
+  assert.match(html, /<html lang="th">/i);
+  assert.match(html, /<title>Pinto — จัดการร้านออนไลน์ครบทุกช่องทาง<\/title>/i);
+
+  assert.match(html, /class="app-shell"/);
+  assert.match(html, /class="sidebar"/);
+  assert.match(html, /class="topbar"/);
+  assert.match(html, /aria-label="เมนูหลัก"/);
+  assert.match(html, /aria-label="กลับหน้าวันนี้"/);
+
+  for (const label of navLabels) {
+    assert.match(html, new RegExp(label), `sidebar is missing nav item "${label}"`);
+  }
+
+  assert.match(html, /หน้าหลัก/);
+  assert.match(html, /ภาพรวมร้าน/);
 });
 
-test("keeps the loading skeleton scoped and disposable", async () => {
-  const [preview, css, page, layout, packageJson, files] = await Promise.all([
-    readFile(new URL("SkeletonPreview.tsx", previewRoot), "utf8"),
-    readFile(new URL("preview.css", previewRoot), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readdir(previewRoot),
+test("emits site-specific social metadata", async () => {
+  const response = await render();
+  const html = await response.text();
+
+  assert.match(html, /name="description" content="ศูนย์รวมออเดอร์[^"]*"/i);
+  assert.match(html, /property="og:title" content="Pinto — Seller Operations Center"/i);
+  assert.match(html, /property="og:image" content="http:\/\/localhost\/og-v2\.png"/i);
+  assert.match(html, /name="twitter:card" content="summary_large_image"/i);
+  assert.match(html, /name="twitter:image" content="http:\/\/localhost\/og-v2\.png"/i);
+});
+
+test("no longer serves the vinext starter skeleton", async () => {
+  const response = await render();
+  const html = await response.text();
+
+  assert.doesNotMatch(html, /Your site is taking shape/i);
+  assert.doesNotMatch(html, /Building your site/i);
+  assert.doesNotMatch(html, /react-loading-skeleton/i);
+  assert.doesNotMatch(html, /codex-preview/i);
+  assert.doesNotMatch(html, /sites-skeleton/i);
+  assert.doesNotMatch(html, /Starter Project/i);
+});
+
+test("keeps View, navItems and viewTitles synchronized", async () => {
+  const [types, navigation] = await Promise.all([
+    readFile(new URL("../app/types.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/fixtures/navigation.ts", import.meta.url), "utf8"),
   ]);
 
-  assert.deepEqual(files.sort(), ["SkeletonPreview.tsx", "preview.css"]);
-  assert.match(preview, /from "react-loading-skeleton"/);
-  assert.match(preview, /baseColor="#eceae7"/);
-  assert.match(preview, /highlightColor="#f9f8f6"/);
-  assert.match(preview, /duration=\{2\.8\}/);
-  assert.match(preview, /sites-skeleton-search-placeholder/);
-  assert.match(packageJson, /"react-loading-skeleton": "3\.5\.0"/);
+  const viewUnion = types.match(/export type View =([^;]+);/);
+  assert.ok(viewUnion, "app/types.ts should export a View union type");
+  const views = [...viewUnion[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+  assert.ok(views.length > 0, "View union should list at least one view");
 
-  const shellIndex = preview.indexOf('className="sites-skeleton-shell"');
-  const statusIndex = preview.indexOf('className="sites-skeleton-status"');
-  assert.ok(shellIndex >= 0 && statusIndex > shellIndex);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /inset:\s*0/);
-  assert.match(css, /opacity:\s*0\.52/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(css, /#020617|canvas|pets|progress/i);
-  assert.doesNotMatch(
-    preview,
-    /loading-spinner|status-mark|status-progress|canvas|cookie|random/i,
+  const navBlock = navigation.match(/export const navItems: NavItem\[\] = \[([\s\S]*?)\n\];/);
+  assert.ok(navBlock, "navigation.ts should export a navItems array");
+  const navIds = [...navBlock[1].matchAll(/\bid:\s*"([^"]+)"/g)].map((match) => match[1]);
+
+  const titlesBlock = navigation.match(
+    /export const viewTitles: Record<View, ViewTitle> = \{([\s\S]*?)\n\};/,
   );
+  assert.ok(titlesBlock, "navigation.ts should export a viewTitles record");
+  const titleKeys = [...titlesBlock[1].matchAll(/^\s{2}(\w+):\s*\{/gm)].map((match) => match[1]);
 
-  assert.match(page, /export const metadata:\s*Metadata/);
-  assert.match(page, /"codex-preview": "development"/);
-  assert.match(page, /<SkeletonPreview \/>/);
-  assert.match(layout, /title:\s*"Starter Project"/);
-  assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
-  assert.doesNotMatch(css, /(^|\s)(html|body)\s*\{/m);
-
-  await assert.rejects(
-    access(new URL("public/_sites-preview", templateRoot)),
+  assert.deepEqual(
+    navIds.slice().sort(),
+    views.slice().sort(),
+    "navItems ids must cover exactly the View union",
+  );
+  assert.deepEqual(
+    titleKeys.slice().sort(),
+    views.slice().sort(),
+    "viewTitles keys must cover exactly the View union",
+  );
+  assert.deepEqual(
+    navLabels.slice().sort(),
+    [...navBlock[1].matchAll(/\blabel:\s*"([^"]+)"/g)].map((m) => m[1]).sort(),
+    "nav labels asserted in the render test must match navigation.ts",
   );
 });
