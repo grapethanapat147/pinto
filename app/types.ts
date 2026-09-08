@@ -90,3 +90,32 @@ export type Payout = {
   amount: string;
   status: string;
 };
+
+/* --- Presentation figures (PIN-0009). Temporary scaffolding: see schema-v1 Q1. --- */
+
+export type MetricTile = {
+  key: string;
+  label: string;
+  value: string;
+  note: string;
+  trend?: "up" | "down" | "warning";
+};
+
+export type PeriodFigures = { profit: string; sales: string; ads: string; orders: string; change: string };
+export type ChannelRow = { channel: string; code: string; sales: string; orders: string; profit: string; margin: string };
+export type SegmentRow = { key: string; label: string; count: string; note: string };
+export type RegionRow = { name: string; value: string; width: number };
+export type WaterfallRow = { label: string; amount: string; kind: string };
+export type RestockRow = { name: string; quantity: string };
+export type OpportunityRow = { name: string; metric: string; profit: string; accent: string };
+
+export type DashboardMetrics = {
+  periods: Record<string, PeriodFigures>;
+  tiles: Record<string, MetricTile[]>;
+  channels: ChannelRow[];
+  segments: SegmentRow[];
+  regions: RegionRow[];
+  waterfall: WaterfallRow[];
+  restock: RestockRow[];
+  opportunities: OpportunityRow[];
+};

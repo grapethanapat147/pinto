@@ -16,6 +16,10 @@ import { conversations } from "../app/fixtures/conversations.ts";
 import { inventory } from "../app/fixtures/inventory.ts";
 import { orders } from "../app/fixtures/orders.ts";
 import { payouts } from "../app/fixtures/payouts.ts";
+import {
+  channelPerformance, customerSegments, periodMetrics, productOpportunities,
+  regionShares, restockSuggestions, viewTiles, waterfallSteps,
+} from "../app/fixtures/metrics.ts";
 
 const SHOP = "ร้าน Mali Living";
 
@@ -118,7 +122,11 @@ const insert = (table: string, cols: string[], rows: (string | number | null)[][
 out.push("PRAGMA defer_foreign_keys = ON;");
 for (const t of [
   "messages", "conversations", "orders", "inventory_levels", "products",
-  "actions", "campaigns", "payouts", "channels", "shops",
+  "actions", "campaigns", "payouts",
+  // presentation scaffolding (schema-v1 Q1c)
+  "dashboard_metrics", "channel_metrics", "customer_segments", "regions",
+  "waterfall_steps", "restock_suggestions", "product_opportunities",
+  "channels", "shops",
 ]) {
   out.push(`DELETE FROM \`${t}\`;`);
 }
@@ -204,6 +212,88 @@ insert(
   payouts.map((p, i) => [
     i + 1, 1, channelId(p.platform), dateOnly(i + 1),
     Number(p.orders.replace(/\D/g, "")), satang(p.amount), p.status,
+  ])
+);
+
+/* ---------- presentation scaffolding ---------- */
+
+const productIdBySku = new Map(inventory.map((item, i) => [item.sku, i + 1]));
+const channelIdByCode = new Map<string, number>(CHANNELS.map((c, i) => [c.code, i + 1]));
+
+// baht in the fixture, satang in the column
+const money = (baht: number) => Math.round(baht * 100);
+const tileValue = (t: { value: number; unit: string }) =>
+  t.unit === "satang" ? [money(t.value), null] : [null, t.value];
+
+let metricId = 0;
+insert(
+  "dashboard_metrics",
+  ["id", "shop_id", "scope", "period", "metric_key", "label", "value_satang", "value_num", "unit", "note", "trend", "sort_order"],
+  [
+    // the Today view's period selector, one row per period per figure
+    ...periodMetrics.flatMap((p) =>
+      (
+        [
+          ["profit", "กำไร", money(p.profit), null, "satang"],
+          ["sales", "ยอดขายรวม", money(p.sales), null, "satang"],
+          ["ads", "ค่าโฆษณา", money(p.ads), null, "satang"],
+          ["orders", "ออเดอร์ทั้งหมด", null, p.orders, "count"],
+          ["change", "เปลี่ยนแปลง", null, p.changePercent, "percent"],
+        ] as [string, string, number | null, number | null, string][]
+      ).map(([key, label, satangValue, numValue, unit], index) => [
+        ++metricId, 1, "today", p.period, key, label, satangValue, numValue, unit, null, null, index,
+      ])
+    ),
+    // the per-view tile strips
+    ...Object.entries(viewTiles).flatMap(([scope, tiles]) =>
+      tiles.map((t, index) => {
+        const [satangValue, numValue] = tileValue(t);
+        return [
+          ++metricId, 1, scope, null, t.key, t.label, satangValue, numValue, t.unit,
+          t.note || null, t.trend ?? null, index,
+        ];
+      })
+    ),
+  ]
+);
+
+insert(
+  "channel_metrics",
+  ["id", "shop_id", "channel_id", "period", "sales_satang", "order_count", "profit_satang"],
+  channelPerformance.map((c, i) => [
+    i + 1, 1, channelIdByCode.get(c.channelCode)!, "วันนี้", money(c.sales), c.orders, money(c.profit),
+  ])
+);
+
+insert(
+  "customer_segments",
+  ["id", "shop_id", "segment_key", "label", "customer_count", "note", "sort_order"],
+  customerSegments.map((s, i) => [i + 1, 1, s.key, s.label, s.count, s.note, i])
+);
+
+insert(
+  "regions",
+  ["id", "shop_id", "name", "share_percent", "sort_order"],
+  regionShares.map((r, i) => [i + 1, 1, r.name, r.sharePercent, i])
+);
+
+insert(
+  "waterfall_steps",
+  ["id", "shop_id", "label", "amount_satang", "kind", "sort_order"],
+  waterfallSteps.map((w, i) => [i + 1, 1, w.label, money(w.amount), w.kind, i])
+);
+
+insert(
+  "restock_suggestions",
+  ["id", "shop_id", "product_id", "suggested_quantity", "sort_order"],
+  restockSuggestions.map((r, i) => [i + 1, 1, productIdBySku.get(r.sku)!, r.quantity, i])
+);
+
+insert(
+  "product_opportunities",
+  ["id", "shop_id", "product_id", "growth_percent", "profit_satang", "accent", "sort_order"],
+  productOpportunities.map((o, i) => [
+    i + 1, 1, productIdBySku.get(o.sku)!, o.growthPercent, money(o.profit), o.accent, i,
   ])
 );
 

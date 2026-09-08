@@ -4,25 +4,28 @@ import { ArrowRight, Check } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
-import type { Notify, Payout } from "../types";
+import type { DashboardMetrics, Notify, Payout } from "../types";
 
-export function MoneyView({ payouts, notify }: { payouts: Payout[]; notify: Notify }) {
+export function MoneyView({ payouts, metrics, notify }: { payouts: Payout[]; metrics: DashboardMetrics; notify: Notify }) {
+  const tile = (key: string) => metrics.tiles.money?.find((item) => item.key === key);
+  const profit = tile("profit");
+  const withdrawable = tile("withdrawable");
+  const pending = tile("pending");
+
   return (
     <>
       <section className="money-hero">
-        <article><p>กำไรโดยประมาณวันนี้</p><h2>฿48,720</h2><StatusPill tone="good">↑ 12.4%</StatusPill><small>รวมข้อมูลครบ 98.6%</small></article>
-        <article><p>เงินพร้อมถอน</p><h2>฿24,680</h2><button className="primary-button" onClick={() => notify("ตัวอย่าง — ยังไม่มีการถอนเงินจริง", "demo")}>ดูรายละเอียด</button></article>
-        <article><p>เงินรอโอน</p><h2>฿73,290</h2><div className="mini-payout"><span>TikTok 53%</span><span>Shopee 33%</span><span>LINE 14%</span></div></article>
+        <article><p>{profit?.label}</p><h2>{profit?.value}</h2><StatusPill tone="good">↑ 12.4%</StatusPill><small>{profit?.note}</small></article>
+        <article><p>{withdrawable?.label}</p><h2>{withdrawable?.value}</h2><button className="primary-button" onClick={() => notify("ตัวอย่าง — ยังไม่มีการถอนเงินจริง", "demo")}>ดูรายละเอียด</button></article>
+        <article><p>{pending?.label}</p><h2>{pending?.value}</h2><div className="mini-payout">{(pending?.note ?? "").split(" · ").map((part) => <span key={part}>{part}</span>)}</div></article>
       </section>
       <section className="money-layout">
         <article className="panel waterfall-panel">
           <div className="panel-heading"><div><p>เส้นทางกำไรวันนี้</p><h3>ทุกบาทหายไปไหนบ้าง</h3></div><StatusPill tone="verified">ข้อมูล 98.6%</StatusPill></div>
           <div className="waterfall">
-            <div className="waterfall-column"><i className="wf-sales" /><strong>฿126.8k</strong><span>ยอดขาย</span></div>
-            <div className="waterfall-column"><i className="wf-cost" /><strong>−฿42.7k</strong><span>ต้นทุน</span></div>
-            <div className="waterfall-column"><i className="wf-ads" /><strong>−฿18.5k</strong><span>โฆษณา</span></div>
-            <div className="waterfall-column"><i className="wf-fees" /><strong>−฿17.0k</strong><span>ค่าธรรมเนียม</span></div>
-            <div className="waterfall-column"><i className="wf-profit" /><strong>฿48.7k</strong><span>กำไร</span></div>
+            {metrics.waterfall.map((step) => (
+              <div className="waterfall-column" key={step.kind}><i className={`wf-${step.kind}`} /><strong>{step.amount}</strong><span>{step.label}</span></div>
+            ))}
           </div>
         </article>
         <article className="panel money-note"><span className="spark dark"><Check size={20} /></span><p>ตรวจสอบข้อมูลแล้ว</p><h3>ตัวเลขใกล้ครบทั้งหมด</h3><p>มีเพียง 4 ออเดอร์ที่รอค่าขนส่งจริง ระบบจะปรับกำไรให้อัตโนมัติเมื่อข้อมูลเข้ามา</p><button className="quiet-button wide icon-text-button" onClick={() => notify("ตัวอย่าง — รายการที่รอตรวจสอบยังไม่เปิดใช้งาน", "demo")}>ดู 4 รายการ <ArrowRight size={15} /></button></article>

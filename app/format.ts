@@ -63,3 +63,13 @@ export function formatMessageStamp(iso: string, now: Date = new Date()): string 
 export function formatRoas(spendSatang: number, revenueSatang: number): string {
   return (revenueSatang / spendSatang).toFixed(2);
 }
+
+/** 12684000 satang -> "฿126.8k", for the waterfall's abbreviated labels. */
+export function formatCompactBaht(satang: number): string {
+  return `฿${(satang / 100_000).toFixed(1)}k`;
+}
+
+/** "12.4" -> "12.4%", trimming a trailing ".0" the way the fixtures wrote it. */
+export function formatPercent(value: number): string {
+  return `${Number(value.toFixed(1))}%`;
+}

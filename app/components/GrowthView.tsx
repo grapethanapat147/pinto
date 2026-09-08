@@ -4,16 +4,17 @@ import { ArrowRight, RefreshCw, Sparkles } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
-import type { Campaign, Notify } from "../types";
+import type { Campaign, DashboardMetrics, Notify } from "../types";
 
-export function GrowthView({ campaigns, notify }: { campaigns: Campaign[]; notify: Notify }) {
+export function GrowthView({ campaigns, metrics, notify }: { campaigns: Campaign[]; metrics: DashboardMetrics; notify: Notify }) {
+  const tiles = metrics.tiles.growth ?? [];
+
   return (
     <>
       <section className="compact-metrics growth-metrics">
-        <article><p>ยอดขายจากโฆษณา</p><h3>฿61,450</h3><small className="up">↑ 11.6%</small></article>
-        <article><p>ค่าโฆษณา</p><h3>฿18,460</h3><small className="down">↑ 4.1%</small></article>
-        <article><p>ROAS รวม</p><h3>3.84</h3><small className="up">สูงกว่าเป้า 0.34</small></article>
-        <article><p>กำไรจาก Ads</p><h3>฿21,720</h3><small className="up">Margin 35.3%</small></article>
+        {tiles.map((tile) => (
+          <article key={tile.key}><p>{tile.label}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
+        ))}
       </section>
       <section className="growth-layout">
         <article className="panel data-panel campaign-panel">
@@ -32,7 +33,9 @@ export function GrowthView({ campaigns, notify }: { campaigns: Campaign[]; notif
       </section>
       <section className="panel product-panel">
         <div className="panel-heading"><div><p>สินค้าที่กำลังมาแรง</p><h3>โอกาสเติบโตในสัปดาห์นี้</h3></div><button className="quiet-button icon-text-button" onClick={() => notify("ตัวอย่าง — หน้ารายการสินค้าทั้งหมดยังไม่เปิดใช้งาน", "demo")}>ดูสินค้าทั้งหมด <ArrowRight size={15} /></button></div>
-        <div className="product-grid"><Product name="แจกันเซรามิกสีครีม" metric="ขายเพิ่ม 34%" profit="กำไร ฿8,420" color="cream" /><Product name="ชุดแก้ว Amber 4 ใบ" metric="ขายเพิ่ม 21%" profit="กำไร ฿6,190" color="amber" /><Product name="โคมไฟ Cloud" metric="ขายเพิ่ม 18%" profit="กำไร ฿4,870" color="blue" /></div>
+        <div className="product-grid">{metrics.opportunities.map((item) => (
+          <Product key={item.name} name={item.name} metric={item.metric} profit={item.profit} color={item.accent} />
+        ))}</div>
       </section>
     </>
   );

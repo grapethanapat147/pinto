@@ -5,9 +5,10 @@ import { ShoppingCart, Sparkles } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
-import type { InventoryItem, Notify } from "../types";
+import type { DashboardMetrics, InventoryItem, Notify } from "../types";
 
-export function StockView({ inventory, notify }: { inventory: InventoryItem[]; notify: Notify }) {
+export function StockView({ inventory, metrics, notify }: { inventory: InventoryItem[]; metrics: DashboardMetrics; notify: Notify }) {
+  const tiles = metrics.tiles.stock ?? [];
   const [stockFilter, setStockFilter] = useState("ทั้งหมด");
   const stockFilters = ["ทั้งหมด", "ใกล้หมด", "หมดสต๊อก", "พร้อมขาย"];
   const visibleInventory = stockFilter === "ทั้งหมด" ? inventory : inventory.filter((item) => item.status === stockFilter);
@@ -15,10 +16,9 @@ export function StockView({ inventory, notify }: { inventory: InventoryItem[]; n
   return (
     <>
       <section className="compact-metrics stock-metrics">
-        <article><p>สินค้าพร้อมขาย</p><h3>178</h3><small className="up">95.7% ของสินค้าทั้งหมด</small></article>
-        <article><p>สินค้าใกล้หมด</p><h3 className="text-warning">6</h3><small>ควรสั่งเพิ่มภายในวันนี้</small></article>
-        <article><p>สินค้าหมดสต๊อก</p><h3 className="text-warning">2</h3><small>กระทบยอดขาย 3 ช่องทาง</small></article>
-        <article><p>มูลค่าสต๊อก</p><h3>฿386,420</h3><small className="up">หมุนเวียนเฉลี่ย 18 วัน</small></article>
+        {tiles.map((tile) => (
+          <article key={tile.key}><p>{tile.label}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
+        ))}
       </section>
 
       <section className="stock-layout">
@@ -42,11 +42,9 @@ export function StockView({ inventory, notify }: { inventory: InventoryItem[]; n
 
         <aside className="panel stock-insight">
           <span className="spark dark"><Sparkles size={20} /></span><p>Pinto แนะนำ</p><h3>สั่งเพิ่ม 3 รายการก่อนเที่ยงวันนี้</h3><p>หากสั่งตามยอดแนะนำ ร้านจะมีสินค้าเพียงพอสำหรับยอดขายประมาณ 14 วัน โดยใช้เงินเพิ่มไม่เกิน ฿24,600</p>
-          <div className="restock-list">
-            <div><span>แจกันเซรามิกสีครีม</span><strong>+90 ชิ้น</strong></div>
-            <div><span>โคมไฟ Cloud</span><strong>+45 ชิ้น</strong></div>
-            <div><span>ผ้าปูโต๊ะ Linen Sand</span><strong>+60 ชิ้น</strong></div>
-          </div>
+          <div className="restock-list">{metrics.restock.map((item) => (
+            <div key={item.name}><span>{item.name}</span><strong>{item.quantity}</strong></div>
+          ))}</div>
           <button className="primary-button wide" onClick={() => notify("ตัวอย่าง — ใบสั่งซื้อยังไม่เปิดใช้งาน จึงยังไม่ได้เพิ่มสินค้า", "demo")}>เพิ่มทั้งหมดในใบสั่งซื้อ</button>
         </aside>
       </section>

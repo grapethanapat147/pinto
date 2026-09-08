@@ -4,9 +4,9 @@ import { useState } from "react";
 import { CircleCheck, RefreshCw, Send, ShoppingCart, Sparkles } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
-import type { Conversation, Notify } from "../types";
+import type { Conversation, MetricTile, Notify } from "../types";
 
-export function InboxView({ conversations, notify }: { conversations: Conversation[]; notify: Notify }) {
+export function InboxView({ conversations, tiles, notify }: { conversations: Conversation[]; tiles: MetricTile[]; notify: Notify }) {
   const [channelFilter, setChannelFilter] = useState("ทั้งหมด");
   // `conversations[0]` was safe while this was a module constant; it comes from a query now
   const [selectedConversationId, setSelectedConversationId] = useState<number | null>(conversations[0]?.id ?? null);
@@ -57,10 +57,9 @@ export function InboxView({ conversations, notify }: { conversations: Conversati
   return (
     <>
       <section className="compact-metrics inbox-metrics">
-        <article><p>ข้อความวันนี้</p><h3>36</h3><small className="up">ครบทุกช่องทาง</small></article>
-        <article><p>รอตอบ</p><h3 className="text-warning">12</h3><small>3 ข้อความเกี่ยวกับออเดอร์</small></article>
-        <article><p>เวลาตอบเฉลี่ย</p><h3>4 นาที</h3><small className="up">เร็วขึ้น 38%</small></article>
-        <article><p>ปิดการขายจากแชต</p><h3>฿18,420</h3><small className="up">21 ออเดอร์วันนี้</small></article>
+        {tiles.map((tile) => (
+          <article key={tile.key}><p>{tile.label}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
+        ))}
       </section>
 
       <section className="panel inbox-shell">

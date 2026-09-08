@@ -4,6 +4,7 @@ import {
   listActions,
   listCampaigns,
   listConversations,
+  listDashboardMetrics,
   listInventory,
   listOrders,
   listPayouts,
@@ -18,7 +19,7 @@ type DashboardData = Awaited<ReturnType<typeof loadDashboard>>;
  */
 async function loadDashboard() {
   try {
-    const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal] =
+    const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics] =
       await Promise.all([
         listOrders(),
         listInventory(),
@@ -27,6 +28,7 @@ async function loadDashboard() {
         listCampaigns(),
         listPayouts(),
         openActionImpactTotal(),
+        listDashboardMetrics(),
       ]);
     return {
       ok: true as const,
@@ -37,6 +39,7 @@ async function loadDashboard() {
       campaigns,
       payouts,
       actionImpactTotal,
+      metrics,
     };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : undefined };
@@ -68,6 +71,7 @@ export default async function Page() {
       campaigns={data.campaigns}
       payouts={data.payouts}
       actionImpactTotal={data.actionImpactTotal}
+      metrics={data.metrics}
     />
   );
 }

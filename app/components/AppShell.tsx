@@ -18,7 +18,8 @@ import { OrdersView } from "./OrdersView";
 import { StockView } from "./StockView";
 import { TodayView } from "./TodayView";
 import type {
-  Campaign, Conversation, InventoryItem, Order, Payout, ShopAction, ToastTone, View,
+  Campaign, Conversation, DashboardMetrics, InventoryItem, Order, Payout, ShopAction,
+  ToastTone, View,
 } from "../types";
 
 export function AppShell({
@@ -29,6 +30,7 @@ export function AppShell({
   campaigns,
   payouts,
   actionImpactTotal,
+  metrics,
 }: {
   orders: Order[];
   inventory: InventoryItem[];
@@ -37,6 +39,7 @@ export function AppShell({
   campaigns: Campaign[];
   payouts: Payout[];
   actionImpactTotal: string;
+  metrics: DashboardMetrics;
 }) {
   const [view, setView] = useState<View>("today");
   const [period, setPeriod] = useState("วันนี้");
@@ -113,7 +116,7 @@ export function AppShell({
         />
 
         <div className="page-body">
-          {view === "today" && <TodayView period={period} actions={activeActions.slice(0, 3)} onOpenAction={setSelectedAction} onViewActions={() => changeView("actions")} onNavigate={changeView} notify={notify} />}
+          {view === "today" && <TodayView period={period} actions={activeActions.slice(0, 3)} metrics={metrics} payouts={payouts} onOpenAction={setSelectedAction} onViewActions={() => changeView("actions")} onNavigate={changeView} notify={notify} />}
           {view === "actions" && (
             <ActionsView
               actions={visibleActions}
@@ -125,12 +128,12 @@ export function AppShell({
               notify={notify}
             />
           )}
-          {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} notify={notify} />}
-          {view === "inbox" && <InboxView conversations={conversations} notify={notify} />}
-          {view === "stock" && <StockView inventory={inventory} notify={notify} />}
-          {view === "growth" && <GrowthView campaigns={campaigns} notify={notify} />}
-          {view === "customers" && <CustomersView notify={notify} />}
-          {view === "money" && <MoneyView payouts={payouts} notify={notify} />}
+          {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} tiles={metrics.tiles.orders ?? []} notify={notify} />}
+          {view === "inbox" && <InboxView conversations={conversations} tiles={metrics.tiles.inbox ?? []} notify={notify} />}
+          {view === "stock" && <StockView inventory={inventory} metrics={metrics} notify={notify} />}
+          {view === "growth" && <GrowthView campaigns={campaigns} metrics={metrics} notify={notify} />}
+          {view === "customers" && <CustomersView metrics={metrics} notify={notify} />}
+          {view === "money" && <MoneyView payouts={payouts} metrics={metrics} notify={notify} />}
         </div>
       </section>
 

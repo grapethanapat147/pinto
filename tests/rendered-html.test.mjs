@@ -251,3 +251,25 @@ test("renders empty states rather than crashing on an empty database", async () 
     globalThis.__PINTO_TEST_ENV__ = seeded;
   }
 });
+
+test("serves the dashboard metrics from D1 rather than JSX literals", async () => {
+  const html = await (await render()).text();
+
+  // period figures for the default "วันนี้" selector
+  assert.match(html, /฿48,720/, "profit");
+  assert.match(html, /฿126,840/, "sales");
+  assert.match(html, /284/, "order count");
+
+  // channel table, with margin derived from profit/sales
+  assert.match(html, /฿68,420/);
+  assert.match(html, /36\.4%/, "24930/68420 derived");
+  assert.match(html, /43\.4%/, "7050/16240 derived");
+
+  // quick-work notes and the pending-payout tile
+  assert.match(html, /47 รายการรอแพ็ก/);
+  assert.match(html, /฿73,290/);
+
+  // the payout rail reads the payouts table rather than restating it
+  assert.match(html, /142 ออเดอร์/);
+  assert.match(html, /฿38,740/);
+});

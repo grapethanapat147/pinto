@@ -2,20 +2,32 @@
 
 import { ArrowRight, Clock3, Crown, Repeat2, Sparkles } from "lucide-react";
 
-import type { Notify } from "../types";
+import type { DashboardMetrics, Notify } from "../types";
 
-export function CustomersView({ notify }: { notify: Notify }) {
+const SEGMENT_ICON: Record<string, typeof Crown> = { best: Crown, repeat: Repeat2, sleeping: Clock3 };
+const SEGMENT_CTA: Record<string, string> = { best: "ดูรายชื่อ", repeat: "ดูรายชื่อ", sleeping: "ดูแลกลุ่มนี้" };
+
+export function CustomersView({ metrics, notify }: { metrics: DashboardMetrics; notify: Notify }) {
   return (
     <>
       <section className="customer-segments">
-        <article className="segment-card best"><div><span><Crown size={19} /></span><p>ลูกค้าคนสำคัญ</p></div><h3>286 คน</h3><small>สร้าง 42% ของรายได้ทั้งหมด</small><button className="icon-text-button" onClick={() => notify("ตัวอย่าง — รายชื่อลูกค้าคนสำคัญยังไม่เปิดใช้งาน", "demo")}>ดูรายชื่อ <ArrowRight size={15} /></button></article>
-        <article className="segment-card repeat"><div><span><Repeat2 size={19} /></span><p>ลูกค้าซื้อซ้ำ</p></div><h3>1,148 คน</h3><small>อัตราซื้อซ้ำ 29.8%</small><button className="icon-text-button" onClick={() => notify("ตัวอย่าง — รายชื่อลูกค้าซื้อซ้ำยังไม่เปิดใช้งาน", "demo")}>ดูรายชื่อ <ArrowRight size={15} /></button></article>
-        <article className="segment-card sleeping"><div><span><Clock3 size={19} /></span><p>กำลังจะหายไป</p></div><h3>194 คน</h3><small>ไม่ได้ซื้อสินค้านานกว่า 60 วัน</small><button className="icon-text-button" onClick={() => notify("ตัวอย่าง — รายชื่อกลุ่มที่ควรดูแลยังไม่เปิดใช้งาน", "demo")}>ดูแลกลุ่มนี้ <ArrowRight size={15} /></button></article>
+        {metrics.segments.map((segment) => {
+          const Icon = SEGMENT_ICON[segment.key] ?? Crown;
+          return (
+            <article className={`segment-card ${segment.key}`} key={segment.key}>
+              <div><span><Icon size={19} /></span><p>{segment.label}</p></div>
+              <h3>{segment.count}</h3><small>{segment.note}</small>
+              <button className="icon-text-button" onClick={() => notify(`ตัวอย่าง — รายชื่อ${segment.label}ยังไม่เปิดใช้งาน`, "demo")}>{SEGMENT_CTA[segment.key] ?? "ดูรายชื่อ"} <ArrowRight size={15} /></button>
+            </article>
+          );
+        })}
       </section>
       <section className="customer-layout">
         <article className="panel region-panel">
           <div className="panel-heading"><div><p>พื้นที่ยอดนิยม</p><h3>ลูกค้าของคุณอยู่ที่ไหน</h3></div><button className="quiet-button" onClick={() => notify("ตัวอย่าง — หน้าพื้นที่ทั้งหมดยังไม่เปิดใช้งาน", "demo")}>ดูทั้งหมด</button></div>
-          <div className="region-list"><Region name="กรุงเทพมหานคร" value="32%" width={100} /><Region name="ชลบุรี" value="12%" width={38} /><Region name="เชียงใหม่" value="9%" width={28} /><Region name="นครราชสีมา" value="7%" width={22} /><Region name="ขอนแก่น" value="6%" width={19} /></div>
+          <div className="region-list">{metrics.regions.map((region) => (
+            <Region key={region.name} name={region.name} value={region.value} width={region.width} />
+          ))}</div>
         </article>
         <article className="panel customer-insight">
           <span className="spark dark"><Sparkles size={20} /></span><p>โอกาสดูแลลูกค้า</p><h3>ลูกค้า 82 คนพร้อมกลับมาซื้อซ้ำ</h3><p>กลุ่มนี้เคยซื้อ Home Living มากกว่า 2 ครั้ง และมีแนวโน้มตอบรับคูปองส่งฟรีสูง</p><div className="customer-value"><span>มูลค่าที่คาดการณ์</span><strong>฿46,700</strong></div><button className="primary-button wide" onClick={() => notify("ตัวอย่าง — การสร้างกลุ่มลูกค้ายังไม่เปิดใช้งาน", "demo")}>สร้างกลุ่มลูกค้า</button>

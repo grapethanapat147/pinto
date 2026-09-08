@@ -8,13 +8,16 @@ import { and, asc, desc, eq, isNull, sum } from "drizzle-orm";
 
 import { getDb } from "./index";
 import {
-  actions, campaigns, channels, conversations, inventoryLevels, messages, orders, payouts, products,
+  actions, campaigns, channelMetrics, channels, conversations, customerSegments,
+  dashboardMetrics, inventoryLevels, messages, orders, payouts, productOpportunities,
+  products, regions, restockSuggestions, waterfallSteps,
 } from "./schema";
 import {
-  formatBaht, formatMessageStamp, formatRoas, formatThaiDay, formatTime, formatUpdatedAt,
+  formatBaht, formatCompactBaht, formatMessageStamp, formatPercent, formatRoas,
+  formatThaiDay, formatTime, formatUpdatedAt,
 } from "../app/format";
 import type {
-  Campaign, Conversation, InventoryItem, Order, Payout, ShopAction,
+  Campaign, Conversation, DashboardMetrics, InventoryItem, Order, Payout, ShopAction,
 } from "../app/types";
 
 /** The single seeded demo shop. Milestone 4 replaces this with the authenticated shop. */
@@ -214,4 +217,117 @@ export async function openActionImpactTotal(): Promise<string> {
     .from(actions)
     .where(and(eq(actions.shopId, SHOP_ID), isNull(actions.resolvedAt)));
   return formatBaht(Number(row?.total ?? 0));
+}
+
+/**
+ * The presentation figures that were JSX literals until PIN-0009.
+ *
+ * Temporary scaffolding, like the tables behind it: once there is enough real data these
+ * become aggregates over the domain tables. Values are stored as numbers and formatted
+ * here, so nothing in a component is a display string any more.
+ */
+export async function listDashboardMetrics(): Promise<DashboardMetrics> {
+  const db = getDb();
+  const where = eq(dashboardMetrics.shopId, SHOP_ID);
+
+  const [metricRows, channelRows, segmentRows, regionRows, waterfallRows, restockRows, opportunityRows] =
+    await Promise.all([
+      db.select().from(dashboardMetrics).where(where).orderBy(asc(dashboardMetrics.sortOrder)),
+      db
+        .select({
+          channel: channels.displayName,
+          code: channels.code,
+          salesSatang: channelMetrics.salesSatang,
+          orderCount: channelMetrics.orderCount,
+          profitSatang: channelMetrics.profitSatang,
+        })
+        .from(channelMetrics)
+        .innerJoin(channels, eq(channels.id, channelMetrics.channelId))
+        .where(eq(channelMetrics.shopId, SHOP_ID)),
+      db.select().from(customerSegments).where(eq(customerSegments.shopId, SHOP_ID)).orderBy(asc(customerSegments.sortOrder)),
+      db.select().from(regions).where(eq(regions.shopId, SHOP_ID)).orderBy(asc(regions.sortOrder)),
+      db.select().from(waterfallSteps).where(eq(waterfallSteps.shopId, SHOP_ID)).orderBy(asc(waterfallSteps.sortOrder)),
+      db
+        .select({ name: products.name, quantity: restockSuggestions.suggestedQuantity })
+        .from(restockSuggestions)
+        .innerJoin(products, eq(products.id, restockSuggestions.productId))
+        .where(eq(restockSuggestions.shopId, SHOP_ID))
+        .orderBy(asc(restockSuggestions.sortOrder)),
+      db
+        .select({
+          name: products.name,
+          growthPercent: productOpportunities.growthPercent,
+          profitSatang: productOpportunities.profitSatang,
+          accent: productOpportunities.accent,
+        })
+        .from(productOpportunities)
+        .innerJoin(products, eq(products.id, productOpportunities.productId))
+        .where(eq(productOpportunities.shopId, SHOP_ID))
+        .orderBy(asc(productOpportunities.sortOrder)),
+    ]);
+
+  const render = (row: (typeof metricRows)[number]): string => {
+    if (row.unit === "satang") return formatBaht(row.valueSatang ?? 0);
+    if (row.unit === "percent") return formatPercent(row.valueNum ?? 0);
+    if (row.unit === "minutes") return `${row.valueNum ?? 0} นาที`;
+    if (row.unit === "ratio") return (row.valueNum ?? 0).toFixed(2);
+    return (row.valueNum ?? 0).toLocaleString("en-US");
+  };
+
+  const periods: DashboardMetrics["periods"] = {};
+  const tiles: DashboardMetrics["tiles"] = {};
+  for (const row of metricRows) {
+    if (row.period) {
+      const bucket = (periods[row.period] ??= { profit: "", sales: "", ads: "", orders: "", change: "" });
+      if (row.metricKey in bucket) bucket[row.metricKey as keyof typeof bucket] = render(row);
+      continue;
+    }
+    (tiles[row.scope] ??= []).push({
+      key: row.metricKey,
+      label: row.label,
+      value: render(row),
+      note: row.note ?? "",
+      ...(row.trend && row.trend !== "neutral" ? { trend: row.trend } : {}),
+    });
+  }
+
+  // the widest bar is the reference; the fixtures' 100/38/28/22/19 fall straight out of this
+  const widestShare = Math.max(...regionRows.map((r) => r.sharePercent), 1);
+
+  return {
+    periods,
+    tiles,
+    channels: channelRows.map((row) => ({
+      channel: row.channel,
+      code: row.code,
+      sales: formatBaht(row.salesSatang),
+      orders: String(row.orderCount),
+      profit: formatBaht(row.profitSatang),
+      // derived, never stored
+      margin: formatPercent((row.profitSatang / row.salesSatang) * 100),
+    })),
+    segments: segmentRows.map((row) => ({
+      key: row.segmentKey,
+      label: row.label,
+      count: `${row.customerCount.toLocaleString("en-US")} คน`,
+      note: row.note,
+    })),
+    regions: regionRows.map((row) => ({
+      name: row.name,
+      value: formatPercent(row.sharePercent),
+      width: Math.round((row.sharePercent / widestShare) * 100),
+    })),
+    waterfall: waterfallRows.map((row) => ({
+      label: row.label,
+      amount: `${row.kind === "sales" || row.kind === "profit" ? "" : "−"}${formatCompactBaht(row.amountSatang)}`,
+      kind: row.kind,
+    })),
+    restock: restockRows.map((row) => ({ name: row.name, quantity: `+${row.quantity} ชิ้น` })),
+    opportunities: opportunityRows.map((row) => ({
+      name: row.name,
+      metric: `ขายเพิ่ม ${formatPercent(row.growthPercent)}`,
+      profit: `กำไร ${formatBaht(row.profitSatang)}`,
+      accent: row.accent,
+    })),
+  };
 }

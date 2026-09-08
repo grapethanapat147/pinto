@@ -5,19 +5,18 @@ import { Plus, Search, Truck } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
-import type { Notify, Order } from "../types";
+import type { MetricTile, Notify, Order } from "../types";
 
-export function OrdersView({ query, setQuery, orders: visibleOrders, notify }: { query: string; setQuery: (value: string) => void; orders: Order[]; notify: Notify }) {
+export function OrdersView({ query, setQuery, orders: visibleOrders, tiles, notify }: { query: string; setQuery: (value: string) => void; orders: Order[]; tiles: MetricTile[]; notify: Notify }) {
   const [orderFilter, setOrderFilter] = useState("ทั้งหมด");
   const orderFilters = ["ทั้งหมด", "รอแพ็ก", "พร้อมส่ง", "ตรวจสอบ", "จัดส่งแล้ว"];
   const filteredOrders = orderFilter === "ทั้งหมด" ? visibleOrders : visibleOrders.filter((order) => order.status === orderFilter);
   return (
     <>
       <section className="order-metrics compact-metrics">
-        <article><p>ออเดอร์ใหม่</p><h3>284</h3><small className="up">↑ 6.0% จากเมื่อวาน</small></article>
-        <article><p>รอแพ็ก</p><h3>47</h3><small>ควรเสร็จก่อน 14:00 น.</small></article>
-        <article><p>ต้องตรวจสอบ</p><h3 className="text-warning">8</h3><small>มีความเสี่ยงผิดปกติ</small></article>
-        <article><p>จัดส่งสำเร็จ</p><h3>229</h3><small className="up">อัตราสำเร็จ 97.2%</small></article>
+        {tiles.map((tile) => (
+          <article key={tile.key}><p>{tile.label}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
+        ))}
       </section>
       <section className="panel data-panel">
         <div className="data-toolbar">
