@@ -13,6 +13,10 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    // Node 24 strips types only when imports carry an explicit .ts extension
+    // (scripts/seed.ts imports the fixtures directly); this lets tsc accept the same
+    // specifiers. Safe with noEmit, and vite does its own resolution for app code.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": ["./*"]
     }
