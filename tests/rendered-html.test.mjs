@@ -22,6 +22,22 @@ async function render(pathname = "/") {
   );
 }
 
+async function post(pathname, body) {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
+  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
+  const { default: worker } = await import(workerUrl.href);
+
+  return worker.fetch(
+    new Request(`http://localhost${pathname}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", host: "localhost" },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    }),
+    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
+    { waitUntil() {}, passThroughOnException() {} },
+  );
+}
+
 const navLabels = [
   "วันนี้",
   "สิ่งที่ต้องทำ",
@@ -162,4 +178,38 @@ test("serves actions, conversations, campaigns and payouts from D1", async () =>
   // payouts: order counts and amounts come back from integers
   assert.match(html, /142 ออเดอร์/);
   assert.match(html, /฿38,740/);
+});
+
+// These mutate the shared in-memory database, so they run last and in order.
+test("rejects bad writes without touching the database", async () => {
+  assert.equal((await post("/api/actions/9999/resolve")).status, 404, "unknown action");
+  assert.equal((await post("/api/conversations/9999/messages", { body: "hi" })).status, 404, "unknown conversation");
+  assert.equal((await post("/api/conversations/1/messages", { body: "   " })).status, 400, "blank message");
+
+  // nothing above should have changed what the page serves
+  const html = await (await render()).text();
+  assert.match(html, /฿22,990/, "the action total must be untouched by failed writes");
+});
+
+test("resolving an action persists and reduces the live total", async () => {
+  const response = await post("/api/actions/1/resolve");
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { resolved: true });
+
+  const html = await (await render()).text();
+  assert.doesNotMatch(html, /แคมเปญ TikTok ใช้งบสูงกว่าปกติ/, "resolved action should be gone");
+  assert.match(html, /฿19,750/, "22,990 - 3,240");
+  assert.doesNotMatch(html, /฿22,990/);
+
+  // resolving twice is not a silent success
+  assert.equal((await post("/api/actions/1/resolve")).status, 404);
+});
+
+test("sending a reply persists into the thread", async () => {
+  const response = await post("/api/conversations/1/messages", { body: "ยืนยันจัดส่งวันศุกร์ค่ะ" });
+  assert.equal(response.status, 201);
+  assert.deepEqual(await response.json(), { sent: true });
+
+  const html = await (await render()).text();
+  assert.match(html, /ยืนยันจัดส่งวันศุกร์ค่ะ/, "the stored reply should be served back");
 });

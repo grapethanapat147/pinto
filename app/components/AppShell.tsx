@@ -68,10 +68,21 @@ export function AppShell({
     toastTimer.current = window.setTimeout(() => setToast(null), tone === "demo" ? 3600 : 2400);
   }
 
-  function resolveAction(action: ShopAction) {
+  async function resolveAction(action: ShopAction) {
+    // spec D4: persist first, and only claim success once the backend confirms it
+    try {
+      const response = await fetch(`/api/actions/${action.id}/resolve`, { method: "POST" });
+      if (!response.ok) {
+        notify("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง", "demo");
+        return;
+      }
+    } catch {
+      notify("เชื่อมต่อไม่ได้ จึงยังไม่ได้บันทึก", "demo");
+      return;
+    }
     setResolvedIds((current) => [...current, action.id]);
     setSelectedAction(null);
-    notify("ตัวอย่าง — ทำเครื่องหมายว่าเสร็จในเดโมแล้ว ยังไม่ได้บันทึกถาวร", "demo");
+    notify("บันทึกแล้ว — ย้ายรายการไปที่เสร็จสิ้น");
   }
 
   function changeView(nextView: View) {
@@ -124,7 +135,7 @@ export function AppShell({
       </section>
 
       {mobileMenuOpen && <MobileMoreSheet view={view} onChangeView={changeView} onClose={() => setMobileMenuOpen(false)} />}
-      {selectedAction && <ActionDrawer action={selectedAction} onClose={() => setSelectedAction(null)} onResolve={() => resolveAction(selectedAction)} notify={notify} />}
+      {selectedAction && <ActionDrawer action={selectedAction} onClose={() => setSelectedAction(null)} onResolve={() => { void resolveAction(selectedAction); }} notify={notify} />}
       {toast && (
         <div className={`toast ${toast.tone}`} role="status">
           <span>{toast.tone === "demo" ? <Info size={13} strokeWidth={2.6} /> : <Check size={14} strokeWidth={2.4} />}</span>

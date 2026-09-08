@@ -20,15 +20,30 @@ export function InboxView({ conversations, notify }: { conversations: Conversati
     if (nextConversation) setSelectedConversationId(nextConversation.id);
   }
 
-  function sendReply() {
+  async function sendReply() {
     const message = replyText.trim();
     if (!message) {
       notify("พิมพ์ข้อความก่อนส่งตอบลูกค้า");
       return;
     }
+    // spec D4: the message is stored before the UI says anything happened
+    try {
+      const response = await fetch(`/api/conversations/${selectedConversation.id}/messages`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: message }),
+      });
+      if (!response.ok) {
+        notify("ส่งไม่สำเร็จ ข้อความยังไม่ถูกบันทึก", "demo");
+        return;
+      }
+    } catch {
+      notify("เชื่อมต่อไม่ได้ ข้อความยังไม่ถูกบันทึก", "demo");
+      return;
+    }
     setSentReplies((current) => [...current, { conversationId: selectedConversation.id, text: message, time: "ตอนนี้" }]);
     setReplyText("");
-    notify(`ตัวอย่าง — เพิ่มข้อความในบทสนทนาเดโมแล้ว แต่ยังไม่ได้ส่งถึง ${selectedConversation.name} จริง`, "demo");
+    notify(`บันทึกข้อความถึง ${selectedConversation.name} แล้ว`);
   }
 
   return (
@@ -62,7 +77,7 @@ export function InboxView({ conversations, notify }: { conversations: Conversati
             {sentReplies.filter((message) => message.conversationId === selectedConversation.id).map((message, index) => <div className="message-bubble shop" key={`reply-${selectedConversation.id}-${index}`}><p>{message.text}</p><span>{message.time}</span></div>)}
           </div>
           <div className="smart-replies"><span><Sparkles size={15} />คำตอบแนะนำ</span><div><button onClick={() => setReplyText("ได้เลยค่ะ ทางร้านจัดส่งวันนี้ คาดว่าจะถึงภายในวันศุกร์นะคะ")}>แจ้งวันจัดส่ง</button><button onClick={() => setReplyText("ได้ค่ะ เดี๋ยวทางร้านตรวจสอบและแก้ไขให้ก่อนจัดส่งนะคะ")}>ยืนยันการแก้ไข</button></div></div>
-          <form className="reply-box" onSubmit={(event) => { event.preventDefault(); sendReply(); }}><input value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="พิมพ์ข้อความตอบลูกค้า…" aria-label="ข้อความตอบลูกค้า" /><button type="submit" aria-label="ส่งข้อความ"><Send size={18} /></button></form>
+          <form className="reply-box" onSubmit={(event) => { event.preventDefault(); void sendReply(); }}><input value={replyText} onChange={(event) => setReplyText(event.target.value)} placeholder="พิมพ์ข้อความตอบลูกค้า…" aria-label="ข้อความตอบลูกค้า" /><button type="submit" aria-label="ส่งข้อความ"><Send size={18} /></button></form>
         </article>
       </section>
     </>
