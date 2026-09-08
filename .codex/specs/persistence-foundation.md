@@ -138,16 +138,36 @@ reviewed on its own.
 - [ ] No control claims success for an operation that did not happen.
 - [ ] `.openai/hosting.json` `project_id` is unchanged and holds no secrets.
 
-## Open questions for เกรพ
+## Resolved (2026-09-08)
 
-1. **Deploy target.** Enabling D1 means the live Sites project gets a database. Is that
-   wanted now, or should this stay local-only until the read/write paths are proven?
-2. **Is persistence even the right milestone next?** This turns a demo you can hand to a
-   client into an app that needs a database to run. If the near-term goal is showing
-   Pinto to prospects, milestone 5 (honest empty/loading/error states) plus D6 delivers
-   most of the credibility for a fraction of the work — and does not need a backend.
-3. **Conversations.** Storing customer messages means storing marketplace customer data,
-   which `CLAUDE.md` explicitly says not to commit. Seeded demo names are fine; confirm
-   there is no intent to import real chat history.
-4. **Migration on deploy.** Sites applies generated SQL on deploy per the `examples/d1/`
-   error text. Confirm before relying on it, since there is no rollback story.
+**Q1 — Deploy target: local-only first.** `.openai/hosting.json` flips to `"d1": "DB"`
+because local dev reads the same field, but **nothing deploys** until the read path is
+proven. Setting the flag does not touch the live site on its own; only a deploy does.
+⚠️ Risk to watch: if anyone deploys Pinto for an unrelated reason while the app is
+half-migrated, the live site breaks — every view would query a D1 that has no tables.
+Deploying stays เกรพ's explicit call.
+
+**Q2 — Persistence is the milestone.** Raised the concern that this turns a
+hand-to-a-client demo into an app that needs a database; เกรพ confirmed on 2026-09-08 to
+proceed. PIN-0001 already removed the false-success claims, so the demo is presentable in
+the meantime.
+
+**Q3 — Demo data only, permanently.** No real marketplace customer data enters this repo
+or its database, per `CLAUDE.md`. The seeded names are fictional and the seed script is
+the only writer of conversation content. Importing real chat history would be a separate
+decision requiring its own privacy review — not part of this milestone.
+
+**Q4 — Migration-on-deploy is UNVERIFIED.** The only evidence that Sites applies
+generated SQL is a string the template author wrote in
+`examples/d1/app/api/notes/route.ts`. There is no documentation in the repo, no wrangler
+config to inspect, and no rollback story. Mitigations adopted:
+- migrations stay **additive only** — no `DROP`, no destructive `ALTER` — so a partial
+  apply cannot lose data;
+- the claim gets tested on the first deploy with a throwaway table, before any view
+  depends on D1.
+
+## Ticket numbering
+
+The breakdown above was written before PIN-0001 was spent on the honest-states work, so
+the persistence tickets shift up by one: PIN-0002 is "Cloudflare types + D1 binding",
+PIN-0003 is schema + first migration, and so on through PIN-0008.
