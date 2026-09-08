@@ -3,10 +3,9 @@
 import { ArrowRight, RefreshCw, Sparkles } from "lucide-react";
 
 import { StatusPill } from "./StatusPill";
-import { campaigns } from "../fixtures/campaigns";
-import type { Notify } from "../types";
+import type { Campaign, Notify } from "../types";
 
-export function GrowthView({ notify }: { notify: Notify }) {
+export function GrowthView({ campaigns, notify }: { campaigns: Campaign[]; notify: Notify }) {
   return (
     <>
       <section className="compact-metrics growth-metrics">

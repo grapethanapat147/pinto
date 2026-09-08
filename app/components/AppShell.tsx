@@ -3,6 +3,8 @@
 import { useMemo, useRef, useState } from "react";
 import { Check, Info } from "lucide-react";
 
+import { formatBaht } from "../format";
+
 import { ActionDrawer } from "./ActionDrawer";
 import { ActionsView } from "./ActionsView";
 import { AppSidebar } from "./AppSidebar";
@@ -15,10 +17,27 @@ import { MoneyView } from "./MoneyView";
 import { OrdersView } from "./OrdersView";
 import { StockView } from "./StockView";
 import { TodayView } from "./TodayView";
-import { actionItems } from "../fixtures/actions";
-import type { InventoryItem, Order, ShopAction, ToastTone, View } from "../types";
+import type {
+  Campaign, Conversation, InventoryItem, Order, Payout, ShopAction, ToastTone, View,
+} from "../types";
 
-export function AppShell({ orders, inventory }: { orders: Order[]; inventory: InventoryItem[] }) {
+export function AppShell({
+  orders,
+  inventory,
+  actions: actionItems,
+  conversations,
+  campaigns,
+  payouts,
+  actionImpactTotal,
+}: {
+  orders: Order[];
+  inventory: InventoryItem[];
+  actions: ShopAction[];
+  conversations: Conversation[];
+  campaigns: Campaign[];
+  payouts: Payout[];
+  actionImpactTotal: string;
+}) {
   const [view, setView] = useState<View>("today");
   const [period, setPeriod] = useState("วันนี้");
   const [selectedAction, setSelectedAction] = useState<ShopAction | null>(null);
@@ -30,6 +49,10 @@ export function AppShell({ orders, inventory }: { orders: Order[]; inventory: In
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const activeActions = actionItems.filter((item) => !resolvedIds.includes(item.id));
+  // spec Q3: a live sum, not the literal ฿22,990 it used to be
+  const impactTotal = activeActions.some((a) => a.impactSatang !== undefined)
+    ? formatBaht(activeActions.reduce((sum, a) => sum + (a.impactSatang ?? 0), 0))
+    : actionImpactTotal;
   const visibleActions = actionFilter === "ทั้งหมด"
     ? activeActions
     : activeActions.filter((item) => item.label === actionFilter);
@@ -87,15 +110,16 @@ export function AppShell({ orders, inventory }: { orders: Order[]; inventory: In
               filter={actionFilter}
               setFilter={setActionFilter}
               onOpenAction={setSelectedAction}
+              impactTotal={impactTotal}
               notify={notify}
             />
           )}
           {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} notify={notify} />}
-          {view === "inbox" && <InboxView notify={notify} />}
+          {view === "inbox" && <InboxView conversations={conversations} notify={notify} />}
           {view === "stock" && <StockView inventory={inventory} notify={notify} />}
-          {view === "growth" && <GrowthView notify={notify} />}
+          {view === "growth" && <GrowthView campaigns={campaigns} notify={notify} />}
           {view === "customers" && <CustomersView notify={notify} />}
-          {view === "money" && <MoneyView notify={notify} />}
+          {view === "money" && <MoneyView payouts={payouts} notify={notify} />}
         </div>
       </section>
 

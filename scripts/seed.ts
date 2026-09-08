@@ -157,10 +157,10 @@ const orderIdByExternal = new Map(orders.map((o, i) => [o.id, i + 1]));
 
 insert(
   "conversations",
-  ["id", "shop_id", "channel_id", "order_id", "customer_name", "topic", "unread_count", "last_message_at"],
+  ["id", "shop_id", "channel_id", "order_id", "customer_name", "topic", "preview", "unread_count", "last_message_at"],
   conversations.map((c) => [
     c.id, 1, channelId(c.channel), orderIdByExternal.get(c.order) ?? null,
-    c.name, c.topic, c.unread, at(c.time),
+    c.name, c.topic, c.preview, c.unread, at(c.time),
   ])
 );
 

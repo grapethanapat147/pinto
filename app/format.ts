@@ -30,3 +30,36 @@ export function formatThaiDay(iso: string): string {
     month: "short",
   }).format(new Date(iso));
 }
+
+/** The calendar date in Bangkok, for same-day comparisons that must not use UTC. */
+function bangkokDay(iso: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: BANGKOK,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(iso));
+}
+
+/** ISO -> "อัปเดต 10:38 น." */
+export function formatUpdatedAt(iso: string): string {
+  return `อัปเดต ${formatTime(iso)} น.`;
+}
+
+/**
+ * Message stamps show a clock time on the day itself and "เมื่อวาน" the day before,
+ * reproducing the fixtures' mixed display while staying correct as the demo ages.
+ */
+export function formatMessageStamp(iso: string, now: Date = new Date()): string {
+  const day = bangkokDay(iso);
+  if (day === bangkokDay(now.toISOString())) return formatTime(iso);
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (day === bangkokDay(yesterday.toISOString())) return "เมื่อวาน";
+  return formatThaiDay(iso);
+}
+
+/** Derived, never stored: 2018000/642000 -> "3.14". */
+export function formatRoas(spendSatang: number, revenueSatang: number): string {
+  return (revenueSatang / spendSatang).toFixed(2);
+}

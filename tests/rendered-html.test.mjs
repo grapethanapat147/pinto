@@ -136,3 +136,30 @@ test("serves orders and inventory read from D1, not fixtures", async () => {
   // stock status is derived, not stored: ML-CL-006 has on_hand 0
   assert.match(html, /หมดสต๊อก/);
 });
+
+test("serves actions, conversations, campaigns and payouts from D1", async () => {
+  const response = await render();
+  const html = await response.text();
+
+  // actions: impact and source strings are rebuilt from stored parts, not stored whole
+  assert.match(html, /แคมเปญ TikTok ใช้งบสูงกว่าปกติ/);
+  assert.match(html, /เสี่ยงเสีย ฿3,240/, "impact rebuilt from impact_kind + impact_satang");
+  assert.match(html, /อัปเดต \d{2}:\d{2} น\./, "source rebuilt from detected_at");
+
+  // the Action Center total is a live sum of open actions (spec Q3), not the old literal
+  assert.match(html, /฿22,990/, "3,240 + 6,890 + 12,400 + 460 with nothing resolved");
+
+  // conversations: preview is its own column, not the last message
+  assert.match(html, /ต้องการใบกำกับภาษีค่ะ/, "editorial preview, differs from the message body");
+  assert.match(html, /รบกวนออกใบกำกับภาษีในนามบริษัทได้ไหมคะ/, "the message body itself");
+  assert.match(html, /เมื่อวาน/, "a previous-day message stamp stays relative");
+
+  // campaigns: roas is derived from spend and revenue
+  assert.match(html, /Home Refresh/);
+  assert.match(html, /3\.14/, "20180/6420 = 3.14");
+  assert.match(html, /4\.65/, "19910/4280 = 4.65");
+
+  // payouts: order counts and amounts come back from integers
+  assert.match(html, /142 ออเดอร์/);
+  assert.match(html, /฿38,740/);
+});

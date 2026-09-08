@@ -28,6 +28,8 @@ export type ShopAction = {
   title: string;
   detail: string;
   impact: string;
+  /** Same amount as `impact`, for arithmetic. Absent in the fixtures. */
+  impactSatang?: number;
   channel: string;
   source: string;
   insight: string;

@@ -7,13 +7,13 @@ import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
 import type { Notify, ShopAction } from "../types";
 
-export function ActionsView({ actions, activeCount, filter, setFilter, onOpenAction, notify }: { actions: ShopAction[]; activeCount: number; filter: string; setFilter: (value: string) => void; onOpenAction: (action: ShopAction) => void; notify: Notify }) {
+export function ActionsView({ actions, activeCount, filter, setFilter, onOpenAction, impactTotal, notify }: { actions: ShopAction[]; activeCount: number; filter: string; setFilter: (value: string) => void; onOpenAction: (action: ShopAction) => void; impactTotal: string; notify: Notify }) {
   const filters = ["ทั้งหมด", "ควรจัดการวันนี้", "ตรวจสอบออเดอร์", "โอกาสเพิ่มกำไร"];
   return (
     <>
       <section className="action-hero panel">
-        <div><span className="spark dark"><Sparkles size={20} /></span><div><p>สรุปโดย Pinto</p><h2>{activeCount > 0 ? `มี ${activeCount} เรื่องที่ช่วยปกป้องกำไรได้วันนี้` : "วันนี้ไม่มีเรื่องเร่งด่วนแล้ว"}</h2><small>หากจัดการครบ คาดว่าจะรักษาหรือเพิ่มกำไรได้สูงสุด ฿22,990</small></div></div>
-        <div className="impact-total"><span>ผลกระทบรวม</span><strong>฿22,990</strong></div>
+        <div><span className="spark dark"><Sparkles size={20} /></span><div><p>สรุปโดย Pinto</p><h2>{activeCount > 0 ? `มี ${activeCount} เรื่องที่ช่วยปกป้องกำไรได้วันนี้` : "วันนี้ไม่มีเรื่องเร่งด่วนแล้ว"}</h2><small>หากจัดการครบ คาดว่าจะรักษาหรือเพิ่มกำไรได้สูงสุด {impactTotal}</small></div></div>
+        <div className="impact-total"><span>ผลกระทบรวม</span><strong>{impactTotal}</strong></div>
       </section>
       <div className="toolbar-row">
         <div className="filter-chips">

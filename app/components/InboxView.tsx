@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { CircleCheck, RefreshCw, Send, ShoppingCart, Sparkles } from "lucide-react";
 
-import { conversations } from "../fixtures/conversations";
-import type { Notify } from "../types";
+import type { Conversation, Notify } from "../types";
 
-export function InboxView({ notify }: { notify: Notify }) {
+export function InboxView({ conversations, notify }: { conversations: Conversation[]; notify: Notify }) {
   const [channelFilter, setChannelFilter] = useState("ทั้งหมด");
   const [selectedConversationId, setSelectedConversationId] = useState(conversations[0].id);
   const [replyText, setReplyText] = useState("");

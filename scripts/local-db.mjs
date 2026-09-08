@@ -38,15 +38,28 @@ function sqlite(dbPath, sql) {
   execFileSync("sqlite3", [dbPath], { input: sql, stdio: ["pipe", "inherit", "inherit"] });
 }
 
+/** Tags already applied, so re-running does not replay CREATE TABLE onto live tables. */
+function appliedTags(dbPath) {
+  sqlite(dbPath, "CREATE TABLE IF NOT EXISTS `_applied_migrations` (tag TEXT PRIMARY KEY, applied_at TEXT NOT NULL);");
+  const rows = execFileSync("sqlite3", [dbPath, "SELECT tag FROM `_applied_migrations`;"], { encoding: "utf8" });
+  return new Set(rows.split("\n").filter(Boolean));
+}
+
 function migrate(dbPath) {
   const dir = join(root, "drizzle");
   const journal = JSON.parse(readFileSync(join(dir, "meta/_journal.json"), "utf8"));
   if (!journal.entries.length) throw new Error("No migrations generated yet — run npm run db:generate.");
+
+  const applied = appliedTags(dbPath);
   for (const entry of journal.entries) {
-    const file = join(dir, `${entry.tag}.sql`);
+    if (applied.has(entry.tag)) {
+      console.log(`  skipping ${entry.tag} (already applied)`);
+      continue;
+    }
     console.log(`  applying ${entry.tag}`);
     // drizzle separates statements with this marker; sqlite3 treats it as a comment
-    sqlite(dbPath, readFileSync(file, "utf8"));
+    sqlite(dbPath, readFileSync(join(dir, `${entry.tag}.sql`), "utf8"));
+    sqlite(dbPath, `INSERT INTO \`_applied_migrations\` (tag, applied_at) VALUES ('${entry.tag}', datetime('now'));`);
   }
 }
 

@@ -108,6 +108,8 @@ export const conversations = sqliteTable(
     orderId: integer("order_id").references(() => orders.id),
     customerName: text("customer_name").notNull(),
     topic: text("topic").notNull(),
+    /** Editorial summary shown in the list. Not derivable from the messages. */
+    preview: text("preview").notNull().default(""),
     unreadCount: integer("unread_count").notNull().default(0),
     lastMessageAt: timestamp("last_message_at"),
   },

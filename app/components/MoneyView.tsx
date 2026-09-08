@@ -3,10 +3,9 @@
 import { ArrowRight, Check } from "lucide-react";
 
 import { StatusPill } from "./StatusPill";
-import { payouts } from "../fixtures/payouts";
-import type { Notify } from "../types";
+import type { Notify, Payout } from "../types";
 
-export function MoneyView({ notify }: { notify: Notify }) {
+export function MoneyView({ payouts, notify }: { payouts: Payout[]; notify: Notify }) {
   return (
     <>
       <section className="money-hero">

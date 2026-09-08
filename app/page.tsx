@@ -1,5 +1,13 @@
 import { AppShell } from "./components/AppShell";
-import { listInventory, listOrders } from "../db/queries";
+import {
+  listActions,
+  listCampaigns,
+  listConversations,
+  listInventory,
+  listOrders,
+  listPayouts,
+  openActionImpactTotal,
+} from "../db/queries";
 
 /**
  * Server component: reads D1 once per request and hands plain data to the client shell
@@ -7,6 +15,26 @@ import { listInventory, listOrders } from "../db/queries";
  * value — open it and see today at a glance — free of a loading flash.
  */
 export default async function Page() {
-  const [orders, inventory] = await Promise.all([listOrders(), listInventory()]);
-  return <AppShell orders={orders} inventory={inventory} />;
+  const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal] =
+    await Promise.all([
+      listOrders(),
+      listInventory(),
+      listActions(),
+      listConversations(),
+      listCampaigns(),
+      listPayouts(),
+      openActionImpactTotal(),
+    ]);
+
+  return (
+    <AppShell
+      orders={orders}
+      inventory={inventory}
+      actions={actions}
+      conversations={conversations}
+      campaigns={campaigns}
+      payouts={payouts}
+      actionImpactTotal={actionImpactTotal}
+    />
+  );
 }
