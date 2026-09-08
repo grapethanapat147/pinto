@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { createTestD1 } from "./support/d1.mjs";
+
+// The page is a server component that reads D1. `resolve-hooks.mjs` (loaded via
+// --import) points `cloudflare:workers` at a stub reading this global.
+globalThis.__PINTO_TEST_ENV__ = { DB: createTestD1() };
+
 async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
@@ -109,4 +115,24 @@ test("keeps View, navItems and viewTitles synchronized", async () => {
     [...navBlock[1].matchAll(/\blabel:\s*"([^"]+)"/g)].map((m) => m[1]).sort(),
     "nav labels asserted in the render test must match navigation.ts",
   );
+});
+
+test("serves orders and inventory read from D1, not fixtures", async () => {
+  const response = await render();
+  const html = await response.text();
+
+  // seeded rows reach the rendered payload
+  for (const externalId of ["TT-10842", "SP-48219", "LN-39204"]) {
+    assert.match(html, new RegExp(externalId), `missing order ${externalId} from D1`);
+  }
+  for (const sku of ["ML-CV-018", "ML-CL-006"]) {
+    assert.match(html, new RegExp(sku), `missing product ${sku} from D1`);
+  }
+
+  // satang integers are formatted back to the display strings the fixtures used
+  assert.match(html, /฿1,890/, "189000 satang should render as ฿1,890");
+  assert.match(html, /฿3,260/);
+
+  // stock status is derived, not stored: ML-CL-006 has on_hand 0
+  assert.match(html, /หมดสต๊อก/);
 });

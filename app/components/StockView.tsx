@@ -4,10 +4,9 @@ import { useState } from "react";
 import { ShoppingCart, Sparkles } from "lucide-react";
 
 import { StatusPill } from "./StatusPill";
-import { inventory } from "../fixtures/inventory";
-import type { Notify } from "../types";
+import type { InventoryItem, Notify } from "../types";
 
-export function StockView({ notify }: { notify: Notify }) {
+export function StockView({ inventory, notify }: { inventory: InventoryItem[]; notify: Notify }) {
   const [stockFilter, setStockFilter] = useState("ทั้งหมด");
   const stockFilters = ["ทั้งหมด", "ใกล้หมด", "หมดสต๊อก", "พร้อมขาย"];
   const visibleInventory = stockFilter === "ทั้งหมด" ? inventory : inventory.filter((item) => item.status === stockFilter);
