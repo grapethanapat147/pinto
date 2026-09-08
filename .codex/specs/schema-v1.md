@@ -94,7 +94,7 @@ Notes on specific choices:
 - **`external_id` on orders**, keeping `TT-10842` as marketplace-facing while the primary
   key stays internal.
 
-## Decisions needed before implementing
+## Decisions — RESOLVED 2026-09-08 (เกรพ approved all three recommendations)
 
 ### Q1 — What happens to the 41 hardcoded numbers?
 
@@ -126,3 +126,15 @@ prototype that says `อัปเดต 10:38 น.` forever ages badly in front 
 Under this schema it becomes a live sum, so resolving an action drops it. That is a bug
 fix, but it is also a visible behaviour change the spec currently forbids. Confirm it is
 wanted.
+
+---
+
+## Resolved 2026-09-08
+
+- **Q1 → (c).** The 41 literals move into the seed as data now; deriving them from D1 is
+  a later ticket. Adds a small presentation layer to the schema, marked as scaffolding.
+- **Q2 → real ISO timestamps, anchored at seed time.** The "renders exactly as today"
+  criterion in `persistence-foundation.md` is amended accordingly.
+- **Q3 → yes, `฿22,990` becomes a live sum** and drops when an action is resolved. The
+  spec's "no visible behaviour change" rule takes this one documented exception, because
+  the current behaviour is a bug.

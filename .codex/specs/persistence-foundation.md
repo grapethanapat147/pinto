@@ -129,7 +129,9 @@ reviewed on its own.
 ## Acceptance criteria (whole spec)
 
 - [ ] Reloading the page preserves a resolved action and a sent reply.
-- [ ] With the DB seeded, every one of the 8 views renders exactly as it does today.
+- [ ] With the DB seeded, every one of the 8 views renders as it does today in layout
+      and content, except that times are relative to the seed run (spec Q2) and the
+      Action Center total is a live sum (spec Q3).
 - [ ] No component imports from `app/fixtures/` any more except the seed script.
 - [ ] Every table has `shop_id`; every query filters on it.
 - [ ] `npx tsc --noEmit` is clean, including `db/` and `worker/`.
