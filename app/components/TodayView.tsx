@@ -38,7 +38,7 @@ export function TodayView({ period, actions, onOpenAction, onViewActions, onNavi
     <>
       <section className="welcome-row">
         <div><h2>ยินดีต้อนรับกลับ คุณมะลิ!</h2><p>ดูสุขภาพร้านและจัดการเรื่องสำคัญได้จากที่เดียว</p></div>
-        <button className="primary-button add-cost-button icon-text-button" onClick={() => notify("เปิดหน้าจัดการต้นทุนสินค้า")}><Plus size={17} />เพิ่มข้อมูลต้นทุน</button>
+        <button className="primary-button add-cost-button icon-text-button" onClick={() => notify("ตัวอย่าง — หน้าจัดการต้นทุนสินค้ายังไม่เปิดใช้งาน", "demo")}><Plus size={17} />เพิ่มข้อมูลต้นทุน</button>
       </section>
 
       <div className="today-layout">
@@ -101,16 +101,16 @@ export function TodayView({ period, actions, onOpenAction, onViewActions, onNavi
 
         <aside className="right-rail">
           <section className="panel calendar-panel">
-            <div className="calendar-head"><button aria-label="เดือนก่อนหน้า"><ChevronLeft size={19} /></button><strong>สิงหาคม 2569</strong><button aria-label="เดือนถัดไป"><ChevronRight size={19} /></button></div>
+            <div className="calendar-head"><button aria-label="เดือนก่อนหน้า" onClick={() => notify("ตัวอย่าง — ปฏิทินเดโมมีเฉพาะสิงหาคม 2569", "demo")}><ChevronLeft size={19} /></button><strong>สิงหาคม 2569</strong><button aria-label="เดือนถัดไป" onClick={() => notify("ตัวอย่าง — ปฏิทินเดโมมีเฉพาะสิงหาคม 2569", "demo")}><ChevronRight size={19} /></button></div>
             <div className="weekdays">{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => <span key={day}>{day}</span>)}</div>
             <div className="calendar-grid">
               {calendarDays.map((day) => <button key={day} className={`${selectedDay === day ? "selected" : ""} ${[22, 26, 28].includes(day) ? "has-event" : ""}`} onClick={() => setSelectedDay(day)}>{day}</button>)}
             </div>
-            <button className="calendar-cta icon-text-button" onClick={() => notify(`เปิดกำหนดการวันที่ ${selectedDay} สิงหาคม`)}><CalendarDays size={16} />ดูวันที่ {selectedDay} สิงหาคม</button>
+            <button className="calendar-cta icon-text-button" onClick={() => notify(`ตัวอย่าง — กำหนดการวันที่ ${selectedDay} สิงหาคม ยังไม่เปิดใช้งาน`, "demo")}><CalendarDays size={16} />ดูวันที่ {selectedDay} สิงหาคม</button>
           </section>
 
           <section className="payout-schedule">
-            <div className="rail-heading"><h3>เงินที่กำลังจะเข้า</h3><button className="icon-text-button" onClick={() => notify("เปิดกำหนดการรับเงินทั้งหมด")}>ดูทั้งหมด <ArrowRight size={14} /></button></div>
+            <div className="rail-heading"><h3>เงินที่กำลังจะเข้า</h3><button className="icon-text-button" onClick={() => notify("ตัวอย่าง — หน้ากำหนดการรับเงินยังไม่เปิดใช้งาน", "demo")}>ดูทั้งหมด <ArrowRight size={14} /></button></div>
             <article><i className="channel-logo tiktok">T</i><div><strong>TikTok Shop</strong><span>พรุ่งนี้ · 142 ออเดอร์</span></div><b>฿38,740</b></article>
             <article><i className="channel-logo shopee">S</i><div><strong>Shopee</strong><span>27 ส.ค. · 96 ออเดอร์</span></div><b>฿24,180</b></article>
             <article><i className="channel-logo line">L</i><div><strong>LINE MyShop</strong><span>28 ส.ค. · 31 ออเดอร์</span></div><b>฿10,370</b></article>

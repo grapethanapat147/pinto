@@ -17,7 +17,7 @@ export function ActionDrawer({ action, onClose, onResolve, notify }: { action: S
         <section><p className="drawer-label">สิ่งที่ Pinto พบ</p><p>{action.insight}</p></section>
         <section className="recommendation-box"><p className="drawer-label"><Sparkles size={16} />คำแนะนำ</p><p>{action.recommendation}</p></section>
         <div className="confidence"><span>ความมั่นใจของคำแนะนำ</span><div><i /></div><strong>92%</strong></div>
-        <footer><button className="primary-button wide" onClick={onResolve}>อนุมัติและทำเครื่องหมายว่าเสร็จ</button><button className="secondary-button wide" onClick={() => { onClose(); notify("เก็บรายการไว้จัดการภายหลัง"); }}>ไว้ทีหลัง</button><small>ตัวอย่างนี้จะไม่เปลี่ยนแปลงข้อมูลบนแพลตฟอร์มจริง</small></footer>
+        <footer><button className="primary-button wide" onClick={onResolve}>อนุมัติและทำเครื่องหมายว่าเสร็จ</button><button className="secondary-button wide" onClick={() => { onClose(); notify("ตัวอย่าง — การเลื่อนรายการไว้ทีหลังยังไม่เปิดใช้งาน", "demo"); }}>ไว้ทีหลัง</button><small>ตัวอย่างนี้จะไม่เปลี่ยนแปลงข้อมูลบนแพลตฟอร์มจริง</small></footer>
       </aside>
     </div>
   );

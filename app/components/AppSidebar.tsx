@@ -49,11 +49,11 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, onChangeView, on
         <span><LayoutGrid size={21} /></span><em>เพิ่มเติม</em>
       </button>
       <div className="sidebar-lower">
-        <div className="upgrade-card"><span><Sparkles size={16} strokeWidth={1.9} /></span><strong>ปลดล็อกข้อมูลเชิงลึก</strong><small>เชื่อมต้นทุนให้ครบ เพื่อเห็นกำไรที่แม่นยำขึ้น</small><button onClick={() => notify("เปิดหน้าตั้งค่าการเชื่อมต่อ")}>จัดการการเชื่อมต่อ</button></div>
+        <div className="upgrade-card"><span><Sparkles size={16} strokeWidth={1.9} /></span><strong>ปลดล็อกข้อมูลเชิงลึก</strong><small>เชื่อมต้นทุนให้ครบ เพื่อเห็นกำไรที่แม่นยำขึ้น</small><button onClick={() => notify("ตัวอย่าง — หน้าตั้งค่าการเชื่อมต่อช่องทางยังไม่เปิดใช้งาน", "demo")}>จัดการการเชื่อมต่อ</button></div>
         <div className="store-card">
           <div className="store-avatar">ML</div>
           <div><strong>ร้าน Mali Living</strong><small>เชื่อมต่อแล้ว 3 ช่องทาง</small></div>
-          <button aria-label="เปิดเมนูร้าน"><Ellipsis size={18} /></button>
+          <button aria-label="เปิดเมนูร้าน" onClick={() => notify("ตัวอย่าง — เมนูจัดการร้านยังไม่เปิดใช้งาน", "demo")}><Ellipsis size={18} /></button>
         </div>
       </div>
     </aside>

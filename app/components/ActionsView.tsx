@@ -5,9 +5,9 @@ import { ArrowRight, Sparkles } from "lucide-react";
 import { ActionToneIcon } from "./ActionToneIcon";
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
-import type { ShopAction } from "../types";
+import type { Notify, ShopAction } from "../types";
 
-export function ActionsView({ actions, activeCount, filter, setFilter, onOpenAction }: { actions: ShopAction[]; activeCount: number; filter: string; setFilter: (value: string) => void; onOpenAction: (action: ShopAction) => void }) {
+export function ActionsView({ actions, activeCount, filter, setFilter, onOpenAction, notify }: { actions: ShopAction[]; activeCount: number; filter: string; setFilter: (value: string) => void; onOpenAction: (action: ShopAction) => void; notify: Notify }) {
   const filters = ["ทั้งหมด", "ควรจัดการวันนี้", "ตรวจสอบออเดอร์", "โอกาสเพิ่มกำไร"];
   return (
     <>
@@ -19,7 +19,7 @@ export function ActionsView({ actions, activeCount, filter, setFilter, onOpenAct
         <div className="filter-chips">
           {filters.map((item) => <button key={item} className={filter === item ? "active" : ""} onClick={() => setFilter(item)}>{item}</button>)}
         </div>
-        <button className="secondary-button">เสร็จสิ้นแล้ว</button>
+        <button className="secondary-button" onClick={() => notify("ตัวอย่าง — รายการที่จัดการแล้วยังไม่เปิดใช้งาน", "demo")}>เสร็จสิ้นแล้ว</button>
       </div>
       {actions.length > 0 ? <div className="action-list">{actions.map((action) => (
         <button className={`action-list-item ${action.tone}`} key={action.id} onClick={() => onOpenAction(action)}>

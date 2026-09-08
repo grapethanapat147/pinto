@@ -23,12 +23,12 @@ export function StockView({ notify }: { notify: Notify }) {
 
       <section className="stock-layout">
         <article className="panel data-panel stock-panel">
-          <div className="panel-heading stock-heading"><div><p>สต๊อกทุกช่องทาง</p><h3>รู้จำนวนจริงก่อนรับออเดอร์เพิ่ม</h3></div><button className="primary-button icon-text-button" onClick={() => notify("สร้างรายการสั่งซื้อสินค้าไว้แล้ว")}><ShoppingCart size={16} />สร้างใบสั่งซื้อ</button></div>
+          <div className="panel-heading stock-heading"><div><p>สต๊อกทุกช่องทาง</p><h3>รู้จำนวนจริงก่อนรับออเดอร์เพิ่ม</h3></div><button className="primary-button icon-text-button" onClick={() => notify("ตัวอย่าง — การสร้างใบสั่งซื้อยังไม่เปิดใช้งาน", "demo")}><ShoppingCart size={16} />สร้างใบสั่งซื้อ</button></div>
           <div className="order-filter-row" aria-label="กรองสถานะสต๊อก">{stockFilters.map((item) => <button key={item} className={stockFilter === item ? "active" : ""} onClick={() => setStockFilter(item)}>{item}</button>)}</div>
           <div className="stock-table table-scroll">
             <div className="stock-row stock-head"><span>สินค้า</span><span>คงเหลือ</span><span>จองแล้ว</span><span>ขายได้อีก</span><span>ซิงก์ช่องทาง</span><span>สถานะ</span></div>
             {visibleInventory.map((item) => (
-              <button className="stock-row" key={item.sku} onClick={() => notify(`เปิดรายละเอียด ${item.name}`)}>
+              <button className="stock-row" key={item.sku} onClick={() => notify(`ตัวอย่าง — หน้ารายละเอียด ${item.name} ยังไม่เปิดใช้งาน`, "demo")}>
                 <span><strong>{item.name}</strong><small>{item.sku} · {item.category}</small></span>
                 <strong>{item.stock}</strong><span>{item.reserved}</span><span>{item.daysLeft > 0 ? `${item.daysLeft} วัน` : "—"}</span><span>{item.sync}</span>
                 <StatusPill tone={item.status === "พร้อมขาย" ? "good" : item.status === "ใกล้หมด" ? "warning" : "danger"}>{item.status}</StatusPill>
@@ -44,7 +44,7 @@ export function StockView({ notify }: { notify: Notify }) {
             <div><span>โคมไฟ Cloud</span><strong>+45 ชิ้น</strong></div>
             <div><span>ผ้าปูโต๊ะ Linen Sand</span><strong>+60 ชิ้น</strong></div>
           </div>
-          <button className="primary-button wide" onClick={() => notify("เพิ่มสินค้าทั้ง 3 รายการในใบสั่งซื้อแล้ว")}>เพิ่มทั้งหมดในใบสั่งซื้อ</button>
+          <button className="primary-button wide" onClick={() => notify("ตัวอย่าง — ใบสั่งซื้อยังไม่เปิดใช้งาน จึงยังไม่ได้เพิ่มสินค้า", "demo")}>เพิ่มทั้งหมดในใบสั่งซื้อ</button>
         </aside>
       </section>
 

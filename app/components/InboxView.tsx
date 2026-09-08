@@ -29,7 +29,7 @@ export function InboxView({ notify }: { notify: Notify }) {
     }
     setSentReplies((current) => [...current, { conversationId: selectedConversation.id, text: message, time: "ตอนนี้" }]);
     setReplyText("");
-    notify(`ส่งข้อความถึง ${selectedConversation.name} แล้ว`);
+    notify(`ตัวอย่าง — เพิ่มข้อความในบทสนทนาเดโมแล้ว แต่ยังไม่ได้ส่งถึง ${selectedConversation.name} จริง`, "demo");
   }
 
   return (
@@ -43,7 +43,7 @@ export function InboxView({ notify }: { notify: Notify }) {
 
       <section className="panel inbox-shell">
         <aside className="conversation-sidebar">
-          <header><div><p>กล่องข้อความรวม</p><h3>ลูกค้าที่รอคุณอยู่</h3></div><button onClick={() => notify("อัปเดตข้อความล่าสุดแล้ว")} aria-label="อัปเดตข้อความ"><RefreshCw size={17} /></button></header>
+          <header><div><p>กล่องข้อความรวม</p><h3>ลูกค้าที่รอคุณอยู่</h3></div><button onClick={() => notify("ตัวอย่าง — ยังไม่ได้เชื่อมต่อช่องทางแชต จึงไม่มีข้อความใหม่", "demo")} aria-label="อัปเดตข้อความ"><RefreshCw size={17} /></button></header>
           <div className="inbox-channel-filter">{channelFilters.map((item) => <button key={item} className={channelFilter === item ? "active" : ""} onClick={() => changeChannelFilter(item)}>{item}</button>)}</div>
           <div className="conversation-list">{filteredConversations.map((conversation) => (
             <button key={conversation.id} className={selectedConversation.id === conversation.id ? "active" : ""} onClick={() => setSelectedConversationId(conversation.id)}>
@@ -55,7 +55,7 @@ export function InboxView({ notify }: { notify: Notify }) {
         </aside>
 
         <article className="conversation-detail">
-          <header><div><span className={`channel-logo ${selectedConversation.channel.toLowerCase()}`}>{selectedConversation.channel[0]}</span><div><h3>{selectedConversation.name}</h3><p>{selectedConversation.channel} · ตอบกลับเร็ว</p></div></div><button className="secondary-button" onClick={() => notify(`เปิดออเดอร์ ${selectedConversation.order}`)}>{selectedConversation.order}</button></header>
+          <header><div><span className={`channel-logo ${selectedConversation.channel.toLowerCase()}`}>{selectedConversation.channel[0]}</span><div><h3>{selectedConversation.name}</h3><p>{selectedConversation.channel} · ตอบกลับเร็ว</p></div></div><button className="secondary-button" onClick={() => notify(`ตัวอย่าง — หน้ารายละเอียดออเดอร์ ${selectedConversation.order} ยังไม่เปิดใช้งาน`, "demo")}>{selectedConversation.order}</button></header>
           <div className="conversation-context"><span><ShoppingCart size={16} />{selectedConversation.topic}</span><span><CircleCheck size={16} />ลูกค้าเดิม · 3 ออเดอร์</span></div>
           <div className="message-thread">
             <div className="message-date">วันนี้</div>

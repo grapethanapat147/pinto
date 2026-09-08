@@ -16,7 +16,10 @@ export type NavItem = { id: View; label: string; icon: LucideIcon };
 
 export type ViewTitle = { kicker: string; title: string };
 
-export type Notify = (message: string) => void;
+export type ToastTone = "success" | "demo";
+
+/** `demo` marks feedback for a control this prototype does not actually implement. */
+export type Notify = (message: string, tone?: ToastTone) => void;
 
 export type ShopAction = {
   id: number;

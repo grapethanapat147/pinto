@@ -22,13 +22,13 @@ export function OrdersView({ query, setQuery, orders: visibleOrders, notify }: {
       <section className="panel data-panel">
         <div className="data-toolbar">
           <div className="search-box"><span><Search size={18} /></span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ค้นหาออเดอร์หรือลูกค้า" aria-label="ค้นหาออเดอร์" /></div>
-          <div><button className="secondary-button icon-text-button" onClick={() => notify("เตรียมใบปะหน้า 47 รายการแล้ว")}><Truck size={16} />พิมพ์ใบปะหน้า</button><button className="primary-button icon-text-button" onClick={() => notify("นำเข้าข้อมูลตัวอย่างเรียบร้อย")}><Plus size={16} />เพิ่มออเดอร์</button></div>
+          <div><button className="secondary-button icon-text-button" onClick={() => notify("ตัวอย่าง — การพิมพ์ใบปะหน้ายังไม่เชื่อมต่อกับขนส่งจริง", "demo")}><Truck size={16} />พิมพ์ใบปะหน้า</button><button className="primary-button icon-text-button" onClick={() => notify("ตัวอย่าง — การเพิ่มออเดอร์ยังไม่เปิดใช้งาน", "demo")}><Plus size={16} />เพิ่มออเดอร์</button></div>
         </div>
         <div className="order-filter-row" aria-label="กรองสถานะออเดอร์">{orderFilters.map((item) => <button key={item} className={orderFilter === item ? "active" : ""} onClick={() => setOrderFilter(item)}>{item}</button>)}</div>
         <div className="orders-table table-scroll">
           <div className="order-row order-head"><span>ออเดอร์</span><span>ลูกค้า</span><span>ช่องทาง</span><span>ยอดรวม</span><span>สถานะ</span><span>เวลา</span></div>
           {filteredOrders.map((order) => (
-            <button className="order-row" key={order.id} onClick={() => notify(`เปิดออเดอร์ ${order.id}`)}>
+            <button className="order-row" key={order.id} onClick={() => notify(`ตัวอย่าง — หน้ารายละเอียดออเดอร์ ${order.id} ยังไม่เปิดใช้งาน`, "demo")}>
               <strong>{order.id}</strong><span>{order.customer}</span><span><i className={`channel-logo ${order.channel.toLowerCase()}`}>{order.channel[0]}</i>{order.channel}</span><strong>{order.total}</strong><StatusPill tone={order.status === "ตรวจสอบ" ? "danger" : order.status === "จัดส่งแล้ว" ? "good" : "neutral"}>{order.status}</StatusPill><span>{order.time}</span>
             </button>
           ))}

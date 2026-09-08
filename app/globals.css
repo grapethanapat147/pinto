@@ -200,6 +200,7 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 
 .empty-state { min-height: 210px; display: grid; place-items: center; align-content: center; padding: 30px; border: 1px dashed #ced9d3; border-radius: 16px; background: rgba(255,255,255,.6); text-align: center; }.empty-state > span { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: var(--green-soft); color: var(--green); }.empty-state h3 { margin: 12px 0 4px; font-size: 14px; }.empty-state p { margin: 0; color: var(--muted); font-size: 9px; }
 .toast { position: fixed; z-index: 100; left: 50%; bottom: 25px; display: flex; align-items: center; gap: 9px; padding: 11px 15px; border-radius: 11px; background: #183c30; color: white; box-shadow: 0 12px 35px rgba(15,50,37,.25); transform: translateX(-50%); font-size: 10px; animation: toast-in .2s ease; }.toast span { width: 19px; height: 19px; display: grid; place-items: center; border-radius: 50%; background: #6ac696; color: #14392d; font-weight: 800; }
+.toast.demo { background: #3b3531; }.toast.demo span { background: #e8d9cc; color: #7a5c41; }
 .table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #dce4df transparent; }
 
 @keyframes slide-in { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

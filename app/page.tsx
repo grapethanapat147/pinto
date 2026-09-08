@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Check } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Check, Info } from "lucide-react";
 
 import { ActionDrawer } from "./components/ActionDrawer";
 import { ActionsView } from "./components/ActionsView";
@@ -17,14 +17,15 @@ import { StockView } from "./components/StockView";
 import { TodayView } from "./components/TodayView";
 import { actionItems } from "./fixtures/actions";
 import { orders } from "./fixtures/orders";
-import type { ShopAction, View } from "./types";
+import type { ShopAction, ToastTone, View } from "./types";
 
 export default function Home() {
   const [view, setView] = useState<View>("today");
   const [period, setPeriod] = useState("วันนี้");
   const [selectedAction, setSelectedAction] = useState<ShopAction | null>(null);
   const [resolvedIds, setResolvedIds] = useState<number[]>([]);
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
+  const toastTimer = useRef<number | undefined>(undefined);
   const [query, setQuery] = useState("");
   const [actionFilter, setActionFilter] = useState("ทั้งหมด");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -38,15 +39,17 @@ export default function Home() {
     return !value || `${order.id} ${order.customer} ${order.channel}`.toLowerCase().includes(value);
   }), [query]);
 
-  function notify(message: string) {
-    setToast(message);
-    window.setTimeout(() => setToast(""), 2400);
+  function notify(message: string, tone: ToastTone = "success") {
+    setToast({ message, tone });
+    window.clearTimeout(toastTimer.current);
+    // demo notices carry more to read than a short success confirmation
+    toastTimer.current = window.setTimeout(() => setToast(null), tone === "demo" ? 3600 : 2400);
   }
 
   function resolveAction(action: ShopAction) {
     setResolvedIds((current) => [...current, action.id]);
     setSelectedAction(null);
-    notify("บันทึกแล้ว — ย้ายรายการไปที่เสร็จสิ้น");
+    notify("ตัวอย่าง — ทำเครื่องหมายว่าเสร็จในเดโมแล้ว ยังไม่ได้บันทึกถาวร", "demo");
   }
 
   function changeView(nextView: View) {
@@ -85,6 +88,7 @@ export default function Home() {
               filter={actionFilter}
               setFilter={setActionFilter}
               onOpenAction={setSelectedAction}
+              notify={notify}
             />
           )}
           {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} notify={notify} />}
@@ -98,7 +102,12 @@ export default function Home() {
 
       {mobileMenuOpen && <MobileMoreSheet view={view} onChangeView={changeView} onClose={() => setMobileMenuOpen(false)} />}
       {selectedAction && <ActionDrawer action={selectedAction} onClose={() => setSelectedAction(null)} onResolve={() => resolveAction(selectedAction)} notify={notify} />}
-      {toast && <div className="toast" role="status"><span><Check size={14} strokeWidth={2.4} /></span>{toast}</div>}
+      {toast && (
+        <div className={`toast ${toast.tone}`} role="status">
+          <span>{toast.tone === "demo" ? <Info size={13} strokeWidth={2.6} /> : <Check size={14} strokeWidth={2.4} />}</span>
+          {toast.message}
+        </div>
+      )}
     </main>
   );
 }

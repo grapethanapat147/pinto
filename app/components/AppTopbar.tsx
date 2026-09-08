@@ -24,7 +24,7 @@ export function AppTopbar({ view, period, activeCount, onChangePeriod, onOpenAct
         <button className="icon-button notification-button" aria-label="ดูการแจ้งเตือน" onClick={onOpenActions}>
           <Bell size={18} strokeWidth={1.8} />{activeCount > 0 && <i />}
         </button>
-        <button className="profile" aria-label="เปิดโปรไฟล์">ม</button>
+        <button className="profile" aria-label="เปิดโปรไฟล์" onClick={() => notify("ตัวอย่าง — โปรไฟล์และการตั้งค่าบัญชียังไม่เปิดใช้งาน", "demo")}>ม</button>
       </div>
     </header>
   );
