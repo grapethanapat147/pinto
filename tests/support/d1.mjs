@@ -61,8 +61,11 @@ function asD1(database) {
   };
 }
 
-/** Fresh in-memory database with the real migration and the real seed applied. */
-export function createTestD1() {
+/**
+ * Fresh in-memory database with the real migration applied.
+ * `seed: false` gives a schema-correct but empty database, for the empty-state tests.
+ */
+export function createTestD1({ seed = true } = {}) {
   const database = new DatabaseSync(":memory:");
 
   const drizzleDir = join(root, "drizzle");
@@ -71,8 +74,10 @@ export function createTestD1() {
     database.exec(readFileSync(join(drizzleDir, `${entry.tag}.sql`), "utf8"));
   }
 
-  // the same seed the local database uses, so tests exercise the real fixture mapping
-  database.exec(execFileSync("node", [join(root, "scripts/seed.ts")], { encoding: "utf8" }));
+  if (seed) {
+    // the same seed the local database uses, so tests exercise the real fixture mapping
+    database.exec(execFileSync("node", [join(root, "scripts/seed.ts")], { encoding: "utf8" }));
+  }
 
   return asD1(database);
 }

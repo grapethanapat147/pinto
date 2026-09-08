@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ShoppingCart, Sparkles } from "lucide-react";
 
+import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
 import type { InventoryItem, Notify } from "../types";
 
@@ -34,6 +35,9 @@ export function StockView({ inventory, notify }: { inventory: InventoryItem[]; n
               </button>
             ))}
           </div>
+          {visibleInventory.length === 0 && (
+            <EmptyState title="ไม่พบสินค้าในหมวดนี้" detail="ลองเลือกตัวกรองอื่น หรือเพิ่มสินค้าเข้าระบบ" />
+          )}
         </article>
 
         <aside className="panel stock-insight">

@@ -3,16 +3,19 @@
 import { useState } from "react";
 import { CircleCheck, RefreshCw, Send, ShoppingCart, Sparkles } from "lucide-react";
 
+import { EmptyState } from "./EmptyState";
 import type { Conversation, Notify } from "../types";
 
 export function InboxView({ conversations, notify }: { conversations: Conversation[]; notify: Notify }) {
   const [channelFilter, setChannelFilter] = useState("ทั้งหมด");
-  const [selectedConversationId, setSelectedConversationId] = useState(conversations[0].id);
+  // `conversations[0]` was safe while this was a module constant; it comes from a query now
+  const [selectedConversationId, setSelectedConversationId] = useState<number | null>(conversations[0]?.id ?? null);
   const [replyText, setReplyText] = useState("");
   const [sentReplies, setSentReplies] = useState<{ conversationId: number; text: string; time: string }[]>([]);
   const channelFilters = ["ทั้งหมด", "TikTok", "Shopee", "LINE"];
   const filteredConversations = channelFilter === "ทั้งหมด" ? conversations : conversations.filter((item) => item.channel === channelFilter);
-  const selectedConversation = conversations.find((item) => item.id === selectedConversationId) ?? filteredConversations[0] ?? conversations[0];
+  const selectedConversation =
+    conversations.find((item) => item.id === selectedConversationId) ?? filteredConversations[0] ?? conversations[0] ?? null;
 
   function changeChannelFilter(nextFilter: string) {
     setChannelFilter(nextFilter);
@@ -21,6 +24,7 @@ export function InboxView({ conversations, notify }: { conversations: Conversati
   }
 
   async function sendReply() {
+    if (!selectedConversation) return;
     const message = replyText.trim();
     if (!message) {
       notify("พิมพ์ข้อความก่อนส่งตอบลูกค้า");
@@ -44,6 +48,10 @@ export function InboxView({ conversations, notify }: { conversations: Conversati
     setSentReplies((current) => [...current, { conversationId: selectedConversation.id, text: message, time: "ตอนนี้" }]);
     setReplyText("");
     notify(`บันทึกข้อความถึง ${selectedConversation.name} แล้ว`);
+  }
+
+  if (!selectedConversation) {
+    return <EmptyState title="ยังไม่มีข้อความลูกค้า" detail="เมื่อเชื่อมต่อช่องทางแชตแล้ว ข้อความจะแสดงที่นี่" />;
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { ArrowRight, Check } from "lucide-react";
 
+import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
 import type { Notify, Payout } from "../types";
 
@@ -32,6 +33,9 @@ export function MoneyView({ payouts, notify }: { payouts: Payout[]; notify: Noti
           <div className="payout-row payout-head"><span>แพลตฟอร์ม</span><span>วันที่คาดว่าจะเข้า</span><span>รายการ</span><span>สถานะ</span><span>ยอดสุทธิ</span></div>
           {payouts.map((payout) => <div className="payout-row" key={payout.platform}><strong>{payout.platform}</strong><span>{payout.date}</span><span>{payout.orders}</span><StatusPill tone={payout.status === "ยืนยันแล้ว" ? "good" : "neutral"}>{payout.status}</StatusPill><strong>{payout.amount}</strong></div>)}
         </div>
+        {payouts.length === 0 && (
+          <EmptyState title="ยังไม่มีกำหนดการรับเงิน" detail="เมื่อแพลตฟอร์มยืนยันรอบโอน รายการจะแสดงที่นี่" />
+        )}
       </section>
     </>
   );

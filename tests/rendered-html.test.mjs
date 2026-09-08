@@ -213,3 +213,41 @@ test("sending a reply persists into the thread", async () => {
   const html = await (await render()).text();
   assert.match(html, /ยืนยันจัดส่งวันศุกร์ค่ะ/, "the stored reply should be served back");
 });
+
+// These swap the binding, so they restore it afterwards for anything that follows.
+test("shows a branded page instead of a stack trace when the database is unavailable", async () => {
+  const seeded = globalThis.__PINTO_TEST_ENV__;
+  globalThis.__PINTO_TEST_ENV__ = {};
+  try {
+    const html = await (await render()).text();
+
+    assert.match(html, /ยังไม่สามารถโหลดข้อมูลร้านได้/, "should explain itself in Thai");
+    assert.doesNotMatch(html, /__next_error__/, "should not be the framework error page");
+
+    // must not quietly fall back to the fixtures and pass demo numbers off as live
+    assert.doesNotMatch(html, /TT-10842/, "no fixture orders");
+    assert.doesNotMatch(html, /฿48,720/, "no fixture money");
+  } finally {
+    globalThis.__PINTO_TEST_ENV__ = seeded;
+  }
+});
+
+test("renders empty states rather than crashing on an empty database", async () => {
+  const seeded = globalThis.__PINTO_TEST_ENV__;
+  globalThis.__PINTO_TEST_ENV__ = { DB: createTestD1({ seed: false }) };
+  try {
+    const response = await render();
+    assert.equal(response.status, 200, "an empty database is not an error");
+
+    const html = await response.text();
+    assert.match(html, /class="app-shell"/, "the dashboard shell should still render");
+    // the default "today" view is the only one server-rendered; its Action Center panel
+    // has to degrade rather than show an empty list
+    assert.match(html, /จัดการครบแล้ว เก่งมาก!/, "today-view empty state");
+    // and no fixture data leaks in to fill the gap
+    assert.doesNotMatch(html, /TT-10842/);
+    assert.doesNotMatch(html, /฿22,990/);
+  } finally {
+    globalThis.__PINTO_TEST_ENV__ = seeded;
+  }
+});

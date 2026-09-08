@@ -8,3 +8,4 @@
 | PIN-0005 | Read path: server/client split, orders and inventory from D1 | 2 |
 | PIN-0006 | Read path: actions, conversations, campaigns, payouts | 2 |
 | PIN-0007 | Write path: resolving an action and sending a reply persist | 2 |
+| PIN-0008 | Honest states when there is no data | 2 |

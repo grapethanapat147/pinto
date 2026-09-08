@@ -2,6 +2,7 @@
 
 import { ArrowRight, RefreshCw, Sparkles } from "lucide-react";
 
+import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
 import type { Campaign, Notify } from "../types";
 
@@ -21,6 +22,9 @@ export function GrowthView({ campaigns, notify }: { campaigns: Campaign[]; notif
             <div className="campaign-row campaign-head"><span>แคมเปญ</span><span>ใช้ไป</span><span>ยอดขาย</span><span>ROAS</span><span>สุขภาพ</span></div>
             {campaigns.map((campaign) => <button className="campaign-row" key={campaign.name} onClick={() => notify(`ตัวอย่าง — หน้ารายละเอียดแคมเปญ ${campaign.name} ยังไม่เปิดใช้งาน`, "demo")}><span><strong>{campaign.name}</strong><small>{campaign.channel}</small></span><span>{campaign.spend}</span><span>{campaign.revenue}</span><strong>{campaign.roas}</strong><StatusPill tone={campaign.health === "ดี" ? "good" : campaign.health === "ควรตรวจ" ? "danger" : "warning"}>{campaign.health}</StatusPill></button>)}
           </div>
+          {campaigns.length === 0 && (
+            <EmptyState title="ยังไม่มีแคมเปญ" detail="เชื่อมต่อบัญชีโฆษณาเพื่อดูผลลัพธ์ตามกำไร" />
+          )}
         </article>
         <aside className="panel ai-panel">
           <span className="spark dark"><Sparkles size={20} /></span><p>Pinto แนะนำ</p><h3>โยกงบ ฿1,200 ไปที่ Ceramic Set</h3><p>แคมเปญนี้สร้างกำไรต่อบาทสูงกว่า Home Refresh 41% ในช่วง 3 วันที่ผ่านมา</p><div className="estimate-box"><span>กำไรที่อาจเพิ่ม</span><strong>+ ฿2,080 / วัน</strong></div><button className="primary-button wide" onClick={() => notify("ตัวอย่าง — แผนการปรับงบยังไม่เปิดใช้งาน จึงยังไม่ได้บันทึก", "demo")}>ดูแผนการปรับงบ</button><button className="quiet-button wide" onClick={() => notify("ตัวอย่าง — การเก็บคำแนะนำไว้ทีหลังยังไม่เปิดใช้งาน", "demo")}>ไว้ทีหลัง</button>
