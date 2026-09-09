@@ -482,7 +482,8 @@ test("the sync grid reports real per-channel health", async () => {
   const tiktok = rows.find((r) => r.code === "tiktok");
   assert.equal(tiktok.state, "degraded", "seeded unhealthy so the grid demonstrates itself");
   assert.equal(tiktok.label, "ต้องตรวจสอบ");
-  assert.equal(tiktok.detail, "สต๊อกบางรายการรออัปเดต");
+  // PIN-0016 made this derived from the pending rows rather than seeded prose
+  assert.match(tiktok.detail, /^สต๊อก \d+ รายการรออัปเดต$/);
 
   // a healthy channel with no detail must report its last sync, not "not connected" —
   // conflating "no health row" with "null detail" printed exactly that
@@ -495,5 +496,64 @@ test("the sync grid reports real per-channel health", async () => {
   assert.deepEqual(rows.map((r) => r.accent).sort(), ["line", "shopee", "tiktok"]);
 
   // and it reaches the page
-  assert.match(await (await render()).text(), /สต๊อกบางรายการรออัปเดต/);
+  assert.match(await (await render()).text(), /สต๊อก \d+ รายการรออัปเดต/);
+});
+
+test("derives the stock sync label from per-channel rows", async () => {
+  const { listInventory, listChannelSync } = await import("../db/queries.ts");
+  const session = { userId: 1, shopId: 1, role: "owner", displayName: "ทดสอบ", pictureUrl: null };
+
+  const inventory = await listInventory(session);
+  const byKey = Object.fromEntries(inventory.map((item) => [item.sku, item.sync]));
+
+  // both strings the deprecated prose column used to hold, now derived
+  assert.equal(byKey["ML-CV-018"], "ครบ 3 ช่องทาง");
+  assert.equal(byKey["ML-CL-006"], "TikTok รออัปเดต");
+
+  // the channel's stock detail comes from the same rows, so the two cannot disagree
+  const tiktok = (await listChannelSync(session)).find((row) => row.code === "tiktok");
+  assert.equal(tiktok.detail, "สต๊อก 1 รายการรออัปเดต");
+});
+
+test("names every channel a product is behind on, not just the first", async () => {
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+  const { listInventory } = await import("../db/queries.ts");
+  const session = { userId: 1, shopId: 1, role: "owner", displayName: "ทดสอบ", pictureUrl: null };
+
+  // put ML-CV-018 behind on Shopee too — it is already synced everywhere, so this is the
+  // multi-channel case the single-pending seed cannot exercise
+  await db
+    .prepare(
+      "UPDATE inventory_channel_sync SET state = 'pending' WHERE channel_id = " +
+        "(SELECT id FROM channels WHERE code = 'shopee') AND product_id = " +
+        "(SELECT id FROM products WHERE sku = 'ML-CV-018')"
+    )
+    .bind()
+    .run();
+
+  const item = (await listInventory(session)).find((row) => row.sku === "ML-CV-018");
+  assert.equal(item.sync, "Shopee รออัปเดต");
+
+  await db
+    .prepare(
+      "UPDATE inventory_channel_sync SET state = 'pending' WHERE channel_id = " +
+        "(SELECT id FROM channels WHERE code = 'tiktok') AND product_id = " +
+        "(SELECT id FROM products WHERE sku = 'ML-CV-018')"
+    )
+    .bind()
+    .run();
+
+  const both = (await listInventory(session)).find((row) => row.sku === "ML-CV-018");
+  assert.equal(both.sync, "TikTok, Shopee รออัปเดต", "channel order follows channel id");
+
+  // restore: this mutates state shared with every other test in the file
+  await db
+    .prepare(
+      "UPDATE inventory_channel_sync SET state = 'synced' WHERE product_id = " +
+        "(SELECT id FROM products WHERE sku = 'ML-CV-018')"
+    )
+    .bind()
+    .run();
+  const restored = (await listInventory(session)).find((row) => row.sku === "ML-CV-018");
+  assert.equal(restored.sync, "ครบ 3 ช่องทาง");
 });

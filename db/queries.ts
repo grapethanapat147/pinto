@@ -4,11 +4,12 @@
  *
  * Derived values are computed here rather than stored (schema-v1 F2).
  */
-import { and, asc, desc, eq, isNull, sum } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, ne, sum } from "drizzle-orm";
 
 import { getDb } from "./index";
 import {
   actions, campaigns, channelMetrics, channels, conversations, customerSegments,
+  inventoryChannelSync,
   dashboardMetrics, inventoryLevels, messages, orders, payouts, productOpportunities,
   products, recommendations, regions, restockSuggestions, waterfallSteps,
 } from "./schema";
@@ -69,22 +70,45 @@ export async function listOrders(session: SessionUser): Promise<Order[]> {
   }));
 }
 
+/**
+ * "ครบ 3 ช่องทาง" when every channel is current, otherwise the ones that are behind.
+ * Derived from `inventory_channel_sync` rather than the deprecated prose column, so the
+ * label cannot drift from the rows it describes.
+ */
+function syncLabel(states: { shortName: string; state: string }[]): string {
+  const behind = states.filter((entry) => entry.state !== "synced");
+  if (!states.length) return "ยังไม่ได้ซิงก์";
+  if (!behind.length) return `ครบ ${states.length} ช่องทาง`;
+  return `${behind.map((entry) => entry.shortName).join(", ")} รออัปเดต`;
+}
+
 export async function listInventory(session: SessionUser): Promise<InventoryItem[]> {
   const db = getDb();
   const rows = await db
     .select({
+      productId: products.id,
       sku: products.sku,
       name: products.name,
       category: products.category,
       onHand: inventoryLevels.onHand,
       reserved: inventoryLevels.reserved,
       daysLeft: inventoryLevels.daysLeft,
-      syncState: inventoryLevels.syncState,
     })
     .from(inventoryLevels)
     .innerJoin(products, eq(products.id, inventoryLevels.productId))
     .where(eq(inventoryLevels.shopId, session.shopId))
     .orderBy(asc(inventoryLevels.id));
+
+  const syncRows = await db
+    .select({
+      productId: inventoryChannelSync.productId,
+      shortName: channels.shortName,
+      state: inventoryChannelSync.state,
+    })
+    .from(inventoryChannelSync)
+    .innerJoin(channels, eq(channels.id, inventoryChannelSync.channelId))
+    .where(eq(inventoryChannelSync.shopId, session.shopId))
+    .orderBy(asc(inventoryChannelSync.channelId));
 
   return rows.map((row) => ({
     sku: row.sku,
@@ -93,7 +117,7 @@ export async function listInventory(session: SessionUser): Promise<InventoryItem
     stock: row.onHand,
     reserved: row.reserved,
     daysLeft: row.daysLeft ?? 0,
-    sync: row.syncState,
+    sync: syncLabel(syncRows.filter((entry) => entry.productId === row.productId)),
     status: stockStatus(row.onHand, row.daysLeft),
   }));
 }
@@ -407,7 +431,24 @@ function lastSyncedLabel(iso: string | null): string {
  * could never show a real problem — the one thing a sync indicator is for.
  */
 export async function listChannelSync(session: SessionUser): Promise<ChannelSyncRow[]> {
-  const reports = await listChannelHealth(session);
+  const [reports, pending] = await Promise.all([
+    listChannelHealth(session),
+    getDb()
+      .select({ channelId: inventoryChannelSync.channelId, productId: inventoryChannelSync.productId })
+      .from(inventoryChannelSync)
+      .where(
+        and(
+          eq(inventoryChannelSync.shopId, session.shopId),
+          ne(inventoryChannelSync.state, "synced")
+        )
+      ),
+  ]);
+
+  // Derived, not seeded: channel_health used to carry this sentence as prose alongside
+  // inventory_levels.sync_state saying the same thing, and nothing kept the two agreeing.
+  const behindCount = (channelId: number) =>
+    pending.filter((row) => row.channelId === channelId).length;
+
   return reports.map((report) => ({
     code: report.channel.code,
     displayName: report.channel.displayName,
@@ -415,6 +456,10 @@ export async function listChannelSync(session: SessionUser): Promise<ChannelSync
     state: report.state,
     label: SYNC_LABEL[report.state].label,
     tone: SYNC_LABEL[report.state].tone,
-    detail: report.detail ?? lastSyncedLabel(report.lastSyncedAt),
+    detail:
+      report.detail ??
+      (behindCount(report.channel.id) > 0
+        ? `สต๊อก ${behindCount(report.channel.id)} รายการรออัปเดต`
+        : lastSyncedLabel(report.lastSyncedAt)),
   }));
 }

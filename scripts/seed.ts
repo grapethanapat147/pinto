@@ -38,6 +38,7 @@ function impactKind(display: string): string {
 }
 
 const SEED_AT = new Date();
+const minutesAgo = (n: number) => new Date(SEED_AT.getTime() - n * 60_000).toISOString();
 
 /** Day 0 is the seed date; `hhmm` is a wall-clock time on that day. */
 function at(hhmm: string, dayOffset = 0): string {
@@ -126,7 +127,7 @@ for (const t of [
   // presentation scaffolding (schema-v1 Q1c)
   "dashboard_metrics", "channel_metrics", "customer_segments", "regions",
   "waterfall_steps", "restock_suggestions", "product_opportunities", "recommendations",
-  "sessions", "users", "channel_health",
+  "sessions", "users", "channel_health", "inventory_channel_sync",
   "channels", "shops",
 ]) {
   out.push(`DELETE FROM \`${t}\`;`);
@@ -329,16 +330,36 @@ insert(
 // One channel is seeded degraded on purpose: three identical "ปกติ" rows would not show
 // that the grid works. The fixtures already hint at it — inventory carries
 // "TikTok รออัปเดต" as its sync_state.
-const minutesAgo = (n: number) => new Date(SEED_AT.getTime() - n * 60_000).toISOString();
-
 insert(
   "channel_health",
   ["id", "shop_id", "channel_id", "state", "detail", "last_synced_at"],
   [
-    [1, 1, channelId("TikTok Shop"), "degraded", "สต๊อกบางรายการรออัปเดต", minutesAgo(37)],
+    [1, 1, channelId("TikTok Shop"), "degraded", null, minutesAgo(37)],
     [2, 1, channelId("Shopee"), "healthy", null, minutesAgo(2)],
     [3, 1, channelId("LINE MyShop"), "healthy", null, minutesAgo(4)],
   ]
+);
+
+// Per-product, per-channel stock currency (PIN-0016). Only ML-CL-006 on TikTok is behind,
+// which is what makes the fixtures' two labels — "ครบ 3 ช่องทาง" and "TikTok รออัปเดต" —
+// come back out of the derivation rather than being stored as prose.
+const STOCK_CHANNELS = ["tiktok", "shopee", "line"] as const;
+const PENDING: Record<string, string[]> = { "ML-CL-006": ["tiktok"] };
+
+let syncId = 0;
+insert(
+  "inventory_channel_sync",
+  ["id", "shop_id", "product_id", "channel_id", "state", "last_synced_at"],
+  inventory.flatMap((item, index) =>
+    STOCK_CHANNELS.map((code) => {
+      const pending = (PENDING[item.sku] ?? []).includes(code);
+      return [
+        ++syncId, 1, index + 1, channelIdByCode.get(code)!,
+        pending ? "pending" : "synced",
+        pending ? minutesAgo(180) : minutesAgo(3),
+      ];
+    })
+  )
 );
 
 console.log(out.join("\n"));

@@ -76,6 +76,9 @@ export const inventoryLevels = sqliteTable(
     onHand: integer("on_hand").notNull().default(0),
     reserved: integer("reserved").notNull().default(0),
     daysLeft: integer("days_left"),
+    /** @deprecated PIN-0016 — superseded by `inventoryChannelSync`. Nothing reads this.
+     *  Kept because migrations are additive only (spec Q4); dropping it needs the
+     *  migration-on-deploy question answered first. */
     syncState: text("sync_state").notNull(),
     updatedAt: timestamp("updated_at"),
   },
@@ -381,4 +384,26 @@ export const channelHealth = sqliteTable(
     lastSyncedAt: text("last_synced_at"),
   },
   (table) => [unique("channel_health_channel").on(table.channelId)]
+);
+
+
+/**
+ * Per-product, per-channel stock currency (PIN-0016).
+ *
+ * Replaces `inventory_levels.sync_state`, which flattened a per-channel fact into one
+ * Thai string on the product, so nothing could ask "is this product synced to Shopee?".
+ * The product's label and a channel's stock detail are both derived from these rows, so
+ * the two cannot disagree the way two seeded copies did.
+ */
+export const inventoryChannelSync = sqliteTable(
+  "inventory_channel_sync",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    shopId: integer("shop_id").notNull().references(() => shops.id),
+    productId: integer("product_id").notNull().references(() => products.id),
+    channelId: integer("channel_id").notNull().references(() => channels.id),
+    state: text("state", { enum: ["synced", "pending", "failed"] }).notNull(),
+    lastSyncedAt: text("last_synced_at"),
+  },
+  (table) => [unique("inventory_channel_sync_pair").on(table.productId, table.channelId)]
 );
