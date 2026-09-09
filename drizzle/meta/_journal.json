@@ -15,6 +15,13 @@
       "when": 1788861849684,
       "tag": "0001_bent_wind_dancer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788939773279,
+      "tag": "0002_broken_bill_hollister",
+      "breakpoints": true
     }
   ]
 }

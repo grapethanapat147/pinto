@@ -2,12 +2,12 @@
 
 import { ArrowRight, Clock3, Crown, Repeat2, Sparkles } from "lucide-react";
 
-import type { DashboardMetrics, Notify } from "../types";
+import type { DashboardMetrics, Notify, RecommendationPanel } from "../types";
 
 const SEGMENT_ICON: Record<string, typeof Crown> = { best: Crown, repeat: Repeat2, sleeping: Clock3 };
 const SEGMENT_CTA: Record<string, string> = { best: "ดูรายชื่อ", repeat: "ดูรายชื่อ", sleeping: "ดูแลกลุ่มนี้" };
 
-export function CustomersView({ metrics, notify }: { metrics: DashboardMetrics; notify: Notify }) {
+export function CustomersView({ metrics, recommendation, notify }: { metrics: DashboardMetrics; recommendation?: RecommendationPanel; notify: Notify }) {
   return (
     <>
       <section className="customer-segments">
@@ -30,7 +30,7 @@ export function CustomersView({ metrics, notify }: { metrics: DashboardMetrics; 
           ))}</div>
         </article>
         <article className="panel customer-insight">
-          <span className="spark dark"><Sparkles size={20} /></span><p>โอกาสดูแลลูกค้า</p><h3>ลูกค้า 82 คนพร้อมกลับมาซื้อซ้ำ</h3><p>กลุ่มนี้เคยซื้อ Home Living มากกว่า 2 ครั้ง และมีแนวโน้มตอบรับคูปองส่งฟรีสูง</p><div className="customer-value"><span>มูลค่าที่คาดการณ์</span><strong>฿46,700</strong></div><button className="primary-button wide" onClick={() => notify("ตัวอย่าง — การสร้างกลุ่มลูกค้ายังไม่เปิดใช้งาน", "demo")}>สร้างกลุ่มลูกค้า</button>
+          <span className="spark dark"><Sparkles size={20} /></span><p>{recommendation?.kicker}</p><h3>{recommendation?.title}</h3><p>{recommendation?.body}</p><div className="customer-value"><span>{recommendation?.figureLabel}</span><strong>{recommendation?.figureValue}</strong></div><button className="primary-button wide" onClick={() => notify("ตัวอย่าง — การสร้างกลุ่มลูกค้ายังไม่เปิดใช้งาน", "demo")}>{recommendation?.cta}</button>
         </article>
       </section>
     </>

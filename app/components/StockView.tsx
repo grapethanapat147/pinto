@@ -5,9 +5,9 @@ import { ShoppingCart, Sparkles } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
-import type { DashboardMetrics, InventoryItem, Notify } from "../types";
+import type { DashboardMetrics, InventoryItem, Notify, RecommendationPanel } from "../types";
 
-export function StockView({ inventory, metrics, notify }: { inventory: InventoryItem[]; metrics: DashboardMetrics; notify: Notify }) {
+export function StockView({ inventory, metrics, recommendation, notify }: { inventory: InventoryItem[]; metrics: DashboardMetrics; recommendation?: RecommendationPanel; notify: Notify }) {
   const tiles = metrics.tiles.stock ?? [];
   const [stockFilter, setStockFilter] = useState("ทั้งหมด");
   const stockFilters = ["ทั้งหมด", "ใกล้หมด", "หมดสต๊อก", "พร้อมขาย"];
@@ -41,11 +41,11 @@ export function StockView({ inventory, metrics, notify }: { inventory: Inventory
         </article>
 
         <aside className="panel stock-insight">
-          <span className="spark dark"><Sparkles size={20} /></span><p>Pinto แนะนำ</p><h3>สั่งเพิ่ม 3 รายการก่อนเที่ยงวันนี้</h3><p>หากสั่งตามยอดแนะนำ ร้านจะมีสินค้าเพียงพอสำหรับยอดขายประมาณ 14 วัน โดยใช้เงินเพิ่มไม่เกิน ฿24,600</p>
+          <span className="spark dark"><Sparkles size={20} /></span><p>{recommendation?.kicker}</p><h3>{recommendation?.title}</h3><p>{recommendation?.body}</p>
           <div className="restock-list">{metrics.restock.map((item) => (
             <div key={item.name}><span>{item.name}</span><strong>{item.quantity}</strong></div>
           ))}</div>
-          <button className="primary-button wide" onClick={() => notify("ตัวอย่าง — ใบสั่งซื้อยังไม่เปิดใช้งาน จึงยังไม่ได้เพิ่มสินค้า", "demo")}>เพิ่มทั้งหมดในใบสั่งซื้อ</button>
+          <button className="primary-button wide" onClick={() => notify("ตัวอย่าง — ใบสั่งซื้อยังไม่เปิดใช้งาน จึงยังไม่ได้เพิ่มสินค้า", "demo")}>{recommendation?.cta}</button>
         </aside>
       </section>
 

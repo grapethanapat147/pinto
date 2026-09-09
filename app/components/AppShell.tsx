@@ -18,8 +18,8 @@ import { OrdersView } from "./OrdersView";
 import { StockView } from "./StockView";
 import { TodayView } from "./TodayView";
 import type {
-  Campaign, Conversation, DashboardMetrics, InventoryItem, Order, Payout, ShopAction,
-  ToastTone, View,
+  Campaign, Conversation, DashboardMetrics, InventoryItem, Order, Payout,
+  RecommendationPanel, ShopAction, ToastTone, View,
 } from "../types";
 
 export function AppShell({
@@ -31,6 +31,7 @@ export function AppShell({
   payouts,
   actionImpactTotal,
   metrics,
+  recommendations,
 }: {
   orders: Order[];
   inventory: InventoryItem[];
@@ -40,6 +41,7 @@ export function AppShell({
   payouts: Payout[];
   actionImpactTotal: string;
   metrics: DashboardMetrics;
+  recommendations: Record<string, RecommendationPanel>;
 }) {
   const [view, setView] = useState<View>("today");
   const [period, setPeriod] = useState("วันนี้");
@@ -130,9 +132,9 @@ export function AppShell({
           )}
           {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} tiles={metrics.tiles.orders ?? []} notify={notify} />}
           {view === "inbox" && <InboxView conversations={conversations} tiles={metrics.tiles.inbox ?? []} notify={notify} />}
-          {view === "stock" && <StockView inventory={inventory} metrics={metrics} notify={notify} />}
-          {view === "growth" && <GrowthView campaigns={campaigns} metrics={metrics} notify={notify} />}
-          {view === "customers" && <CustomersView metrics={metrics} notify={notify} />}
+          {view === "stock" && <StockView inventory={inventory} metrics={metrics} recommendation={recommendations.stock} notify={notify} />}
+          {view === "growth" && <GrowthView campaigns={campaigns} metrics={metrics} recommendation={recommendations.growth} notify={notify} />}
+          {view === "customers" && <CustomersView metrics={metrics} recommendation={recommendations.customers} notify={notify} />}
           {view === "money" && <MoneyView payouts={payouts} metrics={metrics} notify={notify} />}
         </div>
       </section>

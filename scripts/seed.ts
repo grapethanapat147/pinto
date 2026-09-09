@@ -18,7 +18,7 @@ import { orders } from "../app/fixtures/orders.ts";
 import { payouts } from "../app/fixtures/payouts.ts";
 import {
   channelPerformance, customerSegments, periodMetrics, productOpportunities,
-  regionShares, restockSuggestions, viewTiles, waterfallSteps,
+  recommendationPanels, regionShares, restockSuggestions, viewTiles, waterfallSteps,
 } from "../app/fixtures/metrics.ts";
 
 const SHOP = "ร้าน Mali Living";
@@ -125,7 +125,7 @@ for (const t of [
   "actions", "campaigns", "payouts",
   // presentation scaffolding (schema-v1 Q1c)
   "dashboard_metrics", "channel_metrics", "customer_segments", "regions",
-  "waterfall_steps", "restock_suggestions", "product_opportunities",
+  "waterfall_steps", "restock_suggestions", "product_opportunities", "recommendations",
   "channels", "shops",
 ]) {
   out.push(`DELETE FROM \`${t}\`;`);
@@ -294,6 +294,22 @@ insert(
   ["id", "shop_id", "product_id", "growth_percent", "profit_satang", "accent", "sort_order"],
   productOpportunities.map((o, i) => [
     i + 1, 1, productIdBySku.get(o.sku)!, o.growthPercent, money(o.profit), o.accent, i,
+  ])
+);
+
+insert(
+  "recommendations",
+  [
+    "id", "shop_id", "scope", "kicker", "title_template", "title_amount_satang",
+    "body_template", "body_amount_satang", "figure_label", "figure_satang",
+    "figure_prefix", "figure_suffix", "cta_label", "secondary_cta_label", "sort_order",
+  ],
+  recommendationPanels.map((r, i) => [
+    i + 1, 1, r.scope, r.kicker,
+    r.title, r.titleAmount === null ? null : money(r.titleAmount),
+    r.body, r.bodyAmount === null ? null : money(r.bodyAmount),
+    r.figureLabel, r.figureAmount === null ? null : money(r.figureAmount),
+    r.figurePrefix, r.figureSuffix, r.cta, r.secondaryCta, i,
   ])
 );
 

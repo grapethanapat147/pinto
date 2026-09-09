@@ -111,3 +111,54 @@ export const productOpportunities = [
   { sku: "ML-AG-024", growthPercent: 21, profit: 6190, accent: "amber" },
   { sku: "ML-CL-006", growthPercent: 18, profit: 4870, accent: "blue" },
 ];
+
+/**
+ * The "Pinto แนะนำ" advisory panels (PIN-0010).
+ *
+ * `{amount}` is interpolated on read, so the money stays an integer instead of being
+ * frozen into the sentence. Amounts are baht here; the seed converts to satang.
+ */
+export const recommendationPanels = [
+  {
+    scope: "stock",
+    kicker: "Pinto แนะนำ",
+    title: "สั่งเพิ่ม 3 รายการก่อนเที่ยงวันนี้",
+    titleAmount: null,
+    body: "หากสั่งตามยอดแนะนำ ร้านจะมีสินค้าเพียงพอสำหรับยอดขายประมาณ 14 วัน โดยใช้เงินเพิ่มไม่เกิน {amount}",
+    bodyAmount: 24600,
+    figureLabel: null,
+    figureAmount: null,
+    figurePrefix: null,
+    figureSuffix: null,
+    cta: "เพิ่มทั้งหมดในใบสั่งซื้อ",
+    secondaryCta: null,
+  },
+  {
+    scope: "growth",
+    kicker: "Pinto แนะนำ",
+    title: "โยกงบ {amount} ไปที่ Ceramic Set",
+    titleAmount: 1200,
+    body: "แคมเปญนี้สร้างกำไรต่อบาทสูงกว่า Home Refresh 41% ในช่วง 3 วันที่ผ่านมา",
+    bodyAmount: null,
+    figureLabel: "กำไรที่อาจเพิ่ม",
+    figureAmount: 2080,
+    figurePrefix: "+ ",
+    figureSuffix: " / วัน",
+    cta: "ดูแผนการปรับงบ",
+    secondaryCta: "ไว้ทีหลัง",
+  },
+  {
+    scope: "customers",
+    kicker: "โอกาสดูแลลูกค้า",
+    title: "ลูกค้า 82 คนพร้อมกลับมาซื้อซ้ำ",
+    titleAmount: null,
+    body: "กลุ่มนี้เคยซื้อ Home Living มากกว่า 2 ครั้ง และมีแนวโน้มตอบรับคูปองส่งฟรีสูง",
+    bodyAmount: null,
+    figureLabel: "มูลค่าที่คาดการณ์",
+    figureAmount: 46700,
+    figurePrefix: null,
+    figureSuffix: null,
+    cta: "สร้างกลุ่มลูกค้า",
+    secondaryCta: null,
+  },
+];

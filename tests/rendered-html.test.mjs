@@ -273,3 +273,18 @@ test("serves the dashboard metrics from D1 rather than JSX literals", async () =
   assert.match(html, /142 ออเดอร์/);
   assert.match(html, /฿38,740/);
 });
+
+test("interpolates recommendation amounts from integer columns", async () => {
+  const html = await (await render()).text();
+
+  // the amount sits mid-sentence in the title; the template stores "โยกงบ {amount} ไปที่..."
+  assert.match(html, /โยกงบ ฿1,200 ไปที่ Ceramic Set/, "title amount interpolated");
+  assert.doesNotMatch(html, /\{amount\}/, "no placeholder should survive to the page");
+
+  // end-of-sentence amount in a body template
+  assert.match(html, /ไม่เกิน ฿24,600/, "body amount interpolated");
+
+  // boxed figures, one with a prefix and suffix, one bare
+  assert.match(html, /\+ ฿2,080 \/ วัน/, "prefix and suffix applied");
+  assert.match(html, /฿46,700/);
+});

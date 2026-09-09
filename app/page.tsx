@@ -8,6 +8,7 @@ import {
   listInventory,
   listOrders,
   listPayouts,
+  listRecommendations,
   openActionImpactTotal,
 } from "../db/queries";
 
@@ -19,7 +20,7 @@ type DashboardData = Awaited<ReturnType<typeof loadDashboard>>;
  */
 async function loadDashboard() {
   try {
-    const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics] =
+    const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations] =
       await Promise.all([
         listOrders(),
         listInventory(),
@@ -29,6 +30,7 @@ async function loadDashboard() {
         listPayouts(),
         openActionImpactTotal(),
         listDashboardMetrics(),
+        listRecommendations(),
       ]);
     return {
       ok: true as const,
@@ -40,6 +42,7 @@ async function loadDashboard() {
       payouts,
       actionImpactTotal,
       metrics,
+      recommendations,
     };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : undefined };
@@ -72,6 +75,7 @@ export default async function Page() {
       payouts={data.payouts}
       actionImpactTotal={data.actionImpactTotal}
       metrics={data.metrics}
+      recommendations={data.recommendations}
     />
   );
 }

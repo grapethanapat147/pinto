@@ -281,3 +281,35 @@ export const productOpportunities = sqliteTable("product_opportunities", {
   accent: text("accent").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
 });
+
+/**
+ * The "Pinto แนะนำ" advisory panels (PIN-0010).
+ *
+ * Text is stored as a template with an `{amount}` placeholder rather than a finished
+ * sentence, so the money stays an integer and can be recomputed — storing
+ * "โยกงบ ฿1,200 ไปที่ Ceramic Set" whole would freeze the number into prose, which is
+ * exactly the problem schema-v1 F3 called out.
+ */
+export const recommendations = sqliteTable(
+  "recommendations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    shopId: integer("shop_id").notNull().references(() => shops.id),
+    /** Which view the panel belongs to: "stock" | "growth" | "customers". */
+    scope: text("scope").notNull(),
+    kicker: text("kicker").notNull(),
+    titleTemplate: text("title_template").notNull(),
+    titleAmountSatang: integer("title_amount_satang"),
+    bodyTemplate: text("body_template").notNull(),
+    bodyAmountSatang: integer("body_amount_satang"),
+    /** The boxed figure some panels show under the body. */
+    figureLabel: text("figure_label"),
+    figureSatang: integer("figure_satang"),
+    figurePrefix: text("figure_prefix"),
+    figureSuffix: text("figure_suffix"),
+    ctaLabel: text("cta_label").notNull(),
+    secondaryCtaLabel: text("secondary_cta_label"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [unique("recommendations_shop_scope").on(table.shopId, table.scope)]
+);

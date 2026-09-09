@@ -119,3 +119,14 @@ export type DashboardMetrics = {
   restock: RestockRow[];
   opportunities: OpportunityRow[];
 };
+
+export type RecommendationPanel = {
+  scope: string;
+  kicker: string;
+  title: string;
+  body: string;
+  figureLabel?: string;
+  figureValue?: string;
+  cta: string;
+  secondaryCta?: string;
+};

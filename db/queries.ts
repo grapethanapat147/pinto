@@ -10,14 +10,15 @@ import { getDb } from "./index";
 import {
   actions, campaigns, channelMetrics, channels, conversations, customerSegments,
   dashboardMetrics, inventoryLevels, messages, orders, payouts, productOpportunities,
-  products, regions, restockSuggestions, waterfallSteps,
+  products, recommendations, regions, restockSuggestions, waterfallSteps,
 } from "./schema";
 import {
   formatBaht, formatCompactBaht, formatMessageStamp, formatPercent, formatRoas,
   formatThaiDay, formatTime, formatUpdatedAt,
 } from "../app/format";
 import type {
-  Campaign, Conversation, DashboardMetrics, InventoryItem, Order, Payout, ShopAction,
+  Campaign, Conversation, DashboardMetrics, InventoryItem, Order, Payout,
+  RecommendationPanel, ShopAction,
 } from "../app/types";
 
 /** The single seeded demo shop. Milestone 4 replaces this with the authenticated shop. */
@@ -330,4 +331,44 @@ export async function listDashboardMetrics(): Promise<DashboardMetrics> {
       accent: row.accent,
     })),
   };
+}
+
+/**
+ * The "Pinto แนะนำ" advisory panels (PIN-0010).
+ *
+ * Text is stored as a template with an `{amount}` placeholder; the amount lives in its own
+ * integer column and is interpolated here. That keeps money an integer while leaving the
+ * sentence intact — storing the finished sentence would freeze the number into prose.
+ */
+export async function listRecommendations(): Promise<Record<string, RecommendationPanel>> {
+  const db = getDb();
+  const rows = await db
+    .select()
+    .from(recommendations)
+    .where(eq(recommendations.shopId, SHOP_ID))
+    .orderBy(asc(recommendations.sortOrder));
+
+  const fill = (template: string, satangValue: number | null) =>
+    satangValue === null ? template : template.replace("{amount}", formatBaht(satangValue));
+
+  return Object.fromEntries(
+    rows.map((row) => [
+      row.scope,
+      {
+        scope: row.scope,
+        kicker: row.kicker,
+        title: fill(row.titleTemplate, row.titleAmountSatang),
+        body: fill(row.bodyTemplate, row.bodyAmountSatang),
+        ...(row.figureLabel ? { figureLabel: row.figureLabel } : {}),
+        ...(row.figureSatang !== null
+          ? {
+              figureValue:
+                `${row.figurePrefix ?? ""}${formatBaht(row.figureSatang)}${row.figureSuffix ?? ""}`,
+            }
+          : {}),
+        cta: row.ctaLabel,
+        ...(row.secondaryCtaLabel ? { secondaryCta: row.secondaryCtaLabel } : {}),
+      },
+    ])
+  );
 }
