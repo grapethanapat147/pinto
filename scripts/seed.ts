@@ -126,6 +126,7 @@ for (const t of [
   // presentation scaffolding (schema-v1 Q1c)
   "dashboard_metrics", "channel_metrics", "customer_segments", "regions",
   "waterfall_steps", "restock_suggestions", "product_opportunities", "recommendations",
+  "sessions", "users",
   "channels", "shops",
 ]) {
   out.push(`DELETE FROM \`${t}\`;`);
@@ -311,6 +312,14 @@ insert(
     r.figureLabel, r.figureAmount === null ? null : money(r.figureAmount),
     r.figurePrefix, r.figureSuffix, r.cta, r.secondaryCta, i,
   ])
+);
+
+// The demo owner behind the one-click sign-in. A real `demo` provider row rather than a
+// bypass — and it carries no secret, because LINE Login is the destination (auth spec Q4).
+insert(
+  "users",
+  ["id", "shop_id", "provider", "provider_user_id", "display_name", "picture_url", "role", "created_at"],
+  [[1, 1, "demo", "demo-owner", "คุณมะลิ", null, "owner", SEED_AT.toISOString()]]
 );
 
 console.log(out.join("\n"));

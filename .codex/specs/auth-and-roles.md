@@ -24,8 +24,9 @@ So the work is: establish who is calling, then replace one constant.
 - **`next/headers` works in this stack.** A probe route reading `cookies()` and `headers()`
   built and returned `{"cookieApi":"function","headerApi":"function","host":"localhost"}`
   from the built worker. Session state can be read in server components. (Probe deleted.)
-- **WebCrypto PBKDF2 is available** — `deriveBits` with SHA-256 returns 32 bytes. No WASM
-  and no native dependency needed, which matters because bcrypt does not run on Workers.
+- **WebCrypto is available** — checked `crypto.subtle` and `crypto.getRandomValues` in the
+  worker runtime. Relevant now only for generating session tokens; the PBKDF2 check that
+  prompted it is moot since no password is ever stored.
 
 ## Proposed design
 
@@ -33,17 +34,29 @@ So the work is: establish who is calling, then replace one constant.
 Two additive tables:
 
 ```
-users      id · shop_id · email · password_hash · password_salt · role · name · created_at
+users      id · shop_id · provider · provider_user_id · display_name · picture_url · role · created_at
+           unique(provider, provider_user_id)
 sessions   id (token) · user_id · shop_id · expires_at · created_at
 ```
+
+No password columns — see the resolution below. Identity comes from an external provider,
+so a user row is `(provider, provider_user_id)` and nothing secret is stored at all.
 
 Sessions live in D1 rather than in a signed cookie, so **logout can actually revoke** —
 a stateless JWT cannot be invalidated before it expires.
 
-### Password handling
-PBKDF2-SHA256, per-user random salt, high iteration count, hash compared in **constant
-time**. Never log or return the hash or salt. This is the one part of this milestone where
-a shortcut is a real vulnerability rather than a rough edge, so it gets its own review.
+### Identity providers
+The session layer is provider-agnostic; a provider's only job is to return a verified
+`(providerUserId, displayName, pictureUrl)`.
+
+- **`line`** — LINE Login (OAuth 2.0 / OIDC). Needs a LINE Login channel; the channel
+  secret is a Cloudflare secret, never `.openai/hosting.json` (`CLAUDE.md` forbids secrets
+  there) and never committed.
+- **`demo`** — signs in the seeded demo owner with no external call. This is what makes the
+  demo one click, and being a real provider row means it is *visible* in the database
+  rather than a hidden bypass.
+
+Storing no passwords removes the largest security surface of this milestone outright.
 
 ### Cookie
 `HttpOnly`, `SameSite=Lax`, `Secure` in production, with an explicit expiry matching the
@@ -85,37 +98,46 @@ Three ways out:
 **Recommendation: (c).** Real auth is genuinely enforced, and a demo still costs one click
 with nothing to remember or type.
 
-## Proposed tickets
-
-| Ticket | Title |
-| --- | --- |
-| PIN-0011 | Users, sessions and password hashing |
-| PIN-0012 | Login, logout, and the demo sign-in button |
-| PIN-0013 | Session-scoped queries — retire `SHOP_ID = 1` |
-| PIN-0014 | Roles: staff cannot read finance |
-
-PIN-0013 is the one that touches 21 call sites; it should land on its own.
-
 ## Acceptance criteria (whole spec)
 
 - [ ] `SHOP_ID = 1` no longer exists; every query and mutation scopes to the session's shop.
 - [ ] An unauthenticated request to `/` reaches the login page, not the dashboard.
-- [ ] Passwords are PBKDF2-hashed with a per-user salt and compared in constant time.
+- [ ] No secret of any kind is stored on a user row.
 - [ ] Logout revokes the session server-side, not just client-side.
 - [ ] `staff` cannot obtain finance data even by crafting the request directly.
-- [ ] The demo is still one click from the login page.
-- [ ] Tests cover: wrong password, expired session, revoked session, cross-shop access,
+- [ ] The demo is still one click from the login page, via a visible `demo` provider.
+- [ ] Tests cover: expired session, revoked session, forged token, cross-shop access,
       and a `staff` request for finance data.
 - [ ] `npx tsc --noEmit`, `npm run build`, `npm run lint`, `npm test` pass.
 
-## Questions for เกรพ
+## Resolved 2026-09-09
 
-1. **Confirm (c) for the demo problem?** It shapes the login page.
-2. **Are two roles enough**, or does Pinto want a third (e.g. an accountant who sees
-   *only* finance)?
-3. **Seeded demo credentials** — what email should the demo owner use? It goes in the
-   repo, so it must be obviously fake, and the password must be treated as public.
-4. **Is a password the right factor at all?** Real Thai merchants would expect LINE Login
-   or a phone OTP. Both need external setup that does not exist yet, so this spec assumes
-   email + password as the self-contained option — but if LINE Login is the actual
-   destination, building password auth first may be throwaway work.
+**Q4 → LINE Login is the destination; password auth is skipped entirely.** เกรพ confirmed
+Thai merchants expect LINE, so building email/password first would have been throwaway
+work. The `users` table carries no secret of any kind.
+
+**Q1 and Q3 → dissolved by that decision.** The demo sign-in is no longer a pre-shared
+password but a `demo` provider, so there are no credentials to put in the repo.
+
+**Q2 → still open.** Two roles (`owner`, `staff`) are assumed until told otherwise.
+
+## What can and cannot be verified yet
+
+A LINE Login channel does not exist for Pinto, so the `line` provider can be **written but
+not exercised** — the OAuth round trip cannot be proven without a real channel id, secret
+and registered redirect URI.
+
+That is why the work splits with the provider-agnostic parts first: sessions, the demo
+provider, scoping and roles are all fully testable today, and the LINE provider lands
+behind them as the one piece waiting on เกรพ's LINE Developers Console.
+
+## Revised tickets
+
+| Ticket | Title | Blocked? |
+| --- | --- | --- |
+| PIN-0011 | Users, sessions, and the demo provider | no |
+| PIN-0012 | Session-scoped queries — retire `SHOP_ID = 1` | no |
+| PIN-0013 | Roles: staff cannot read finance | no |
+| PIN-0014 | LINE Login provider | needs a LINE Login channel |
+
+PIN-0012 is the one that touches 21 call sites; it should land on its own.

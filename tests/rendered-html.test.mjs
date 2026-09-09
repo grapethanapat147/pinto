@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import test from "node:test";
+import test, { before } from "node:test";
 
 import { createTestD1 } from "./support/d1.mjs";
 
@@ -8,34 +8,46 @@ import { createTestD1 } from "./support/d1.mjs";
 // --import) points `cloudflare:workers` at a stub reading this global.
 globalThis.__PINTO_TEST_ENV__ = { DB: createTestD1() };
 
-async function render(pathname = "/") {
+async function fetchWorker(pathname, init = {}) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
     new Request(`http://localhost${pathname}`, {
-      headers: { accept: "text/html", host: "localhost" },
+      method: init.method ?? "GET",
+      headers: { accept: "text/html", host: "localhost", ...(init.headers ?? {}) },
+      ...(init.body === undefined ? {} : { body: init.body }),
+      redirect: "manual",
     }),
     { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
     { waitUntil() {}, passThroughOnException() {} },
   );
 }
 
-async function post(pathname, body) {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+/** PIN-0011 put the dashboard behind a session, so most tests need one. */
+async function signIn() {
+  const response = await fetchWorker("/api/auth/demo", { method: "POST" });
+  const token = (response.headers.get("set-cookie") ?? "").match(/pinto_session=([^;]+)/)?.[1];
+  assert.ok(token, "demo sign-in should set a session cookie");
+  return `pinto_session=${token}`;
+}
 
-  return worker.fetch(
-    new Request(`http://localhost${pathname}`, {
-      method: "POST",
-      headers: { "content-type": "application/json", host: "localhost" },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    }),
-    { ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) } },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
+let sessionCookie;
+before(async () => {
+  sessionCookie = await signIn();
+});
+
+async function render(pathname = "/", { cookie = undefined } = {}) {
+  return fetchWorker(pathname, { headers: { cookie: cookie ?? sessionCookie } });
+}
+
+async function post(pathname, body) {
+  return fetchWorker(pathname, {
+    method: "POST",
+    headers: { "content-type": "application/json", cookie: sessionCookie },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
 }
 
 const navLabels = [
@@ -234,9 +246,17 @@ test("shows a branded page instead of a stack trace when the database is unavail
 
 test("renders empty states rather than crashing on an empty database", async () => {
   const seeded = globalThis.__PINTO_TEST_ENV__;
-  globalThis.__PINTO_TEST_ENV__ = { DB: createTestD1({ seed: false }) };
+  const empty = createTestD1({ seed: false });
+  // an empty database has no users either, so give it just enough to have a caller —
+  // the point of this test is empty *data*, not an empty user table
+  await empty.prepare("INSERT INTO shops (id, name, created_at) VALUES (1, 'ทดสอบ', '2026-01-01T00:00:00.000Z')").bind().run();
+  await empty
+    .prepare("INSERT INTO users (id, shop_id, provider, provider_user_id, display_name, role, created_at) VALUES (1, 1, 'demo', 'demo-owner', 'ทดสอบ', 'owner', '2026-01-01T00:00:00.000Z')")
+    .bind()
+    .run();
+  globalThis.__PINTO_TEST_ENV__ = { DB: empty };
   try {
-    const response = await render();
+    const response = await render("/", { cookie: await signIn() });
     assert.equal(response.status, 200, "an empty database is not an error");
 
     const html = await response.text();
@@ -287,4 +307,58 @@ test("interpolates recommendation amounts from integer columns", async () => {
   // boxed figures, one with a prefix and suffix, one bare
   assert.match(html, /\+ ฿2,080 \/ วัน/, "prefix and suffix applied");
   assert.match(html, /฿46,700/);
+});
+
+test("puts the dashboard behind a session", async () => {
+  const anonymous = await fetchWorker("/");
+  assert.equal(anonymous.status, 307, "no session should not reach the dashboard");
+  assert.equal(anonymous.headers.get("location"), "/login");
+
+  const forged = await fetchWorker("/", { headers: { cookie: "pinto_session=totally-made-up" } });
+  assert.equal(forged.status, 307, "an unknown token must not authenticate");
+
+  const signedIn = await render();
+  assert.equal(signedIn.status, 200);
+  assert.match(await signedIn.text(), /class="app-shell"/);
+});
+
+test("offers a one-click demo sign-in and is honest about LINE", async () => {
+  const html = await (await fetchWorker("/login")).text();
+
+  assert.match(html, /เข้าสู่ระบบตัวอย่าง/, "the demo button");
+  assert.match(html, /เข้าสู่ระบบด้วย LINE/);
+  assert.match(html, /disabled/, "LINE must be disabled until a channel exists");
+  assert.match(html, /ยังไม่ได้เชื่อมต่อ LINE Login/, "and say why");
+});
+
+test("stores only the token digest, and honours the row's expiry", async () => {
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+  const response = await fetchWorker("/api/auth/demo", { method: "POST" });
+  const cookie = response.headers.get("set-cookie") ?? "";
+  const token = cookie.match(/pinto_session=([^;]+)/)[1];
+
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite=Lax/);
+
+  const rows = (await db.prepare("SELECT id FROM sessions").bind().all()).results;
+  assert.ok(!rows.some((row) => row.id === token), "the raw token must never be stored");
+  assert.ok(rows.every((row) => /^[0-9a-f]{64}$/.test(row.id)), "sessions.id should be a sha-256");
+
+  // expire the row without touching the cookie: the row is the authority
+  await db.prepare("UPDATE sessions SET expires_at = '2020-01-01T00:00:00.000Z'").bind().run();
+  const stale = await fetchWorker("/", { headers: { cookie: `pinto_session=${token}` } });
+  assert.equal(stale.status, 307, "an expired row must reject its own live cookie");
+});
+
+test("logout revokes the session server-side", async () => {
+  const cookie = await signIn();
+
+  assert.equal((await render("/", { cookie })).status, 200);
+
+  const out = await fetchWorker("/api/auth/logout", { method: "POST", headers: { cookie } });
+  assert.equal(out.status, 303);
+  assert.match(out.headers.get("set-cookie") ?? "", /pinto_session=;/, "cookie cleared");
+
+  const after = await fetchWorker("/", { headers: { cookie } });
+  assert.equal(after.status, 307, "the old cookie must be dead, not just forgotten");
 });

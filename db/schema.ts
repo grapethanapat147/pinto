@@ -313,3 +313,47 @@ export const recommendations = sqliteTable(
   },
   (table) => [unique("recommendations_shop_scope").on(table.shopId, table.scope)]
 );
+
+/* ------------------------------------------------------------------ *
+ * Identity (PIN-0011)
+ * ------------------------------------------------------------------ */
+
+/**
+ * A user is `(provider, providerUserId)` and carries **no secret at all** — LINE Login is
+ * the destination, so there is no password to store (auth spec Q4).
+ *
+ * `provider` is "line" or "demo". The demo provider is a real row rather than a hidden
+ * bypass, so a one-click demo sign-in is visible in the database.
+ */
+export const users = sqliteTable(
+  "users",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    shopId: integer("shop_id").notNull().references(() => shops.id),
+    provider: text("provider", { enum: ["line", "demo"] }).notNull(),
+    providerUserId: text("provider_user_id").notNull(),
+    displayName: text("display_name").notNull(),
+    pictureUrl: text("picture_url"),
+    role: text("role", { enum: ["owner", "staff"] }).notNull().default("staff"),
+    createdAt: timestamp("created_at"),
+  },
+  (table) => [unique("users_provider_identity").on(table.provider, table.providerUserId)]
+);
+
+/**
+ * Sessions live here rather than in a signed cookie so logout can actually revoke.
+ *
+ * `id` is the **SHA-256 of the token**, never the token itself: the cookie holds the only
+ * copy of the raw value, so a database leak does not hand over live sessions.
+ */
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id),
+    shopId: integer("shop_id").notNull().references(() => shops.id),
+    expiresAt: text("expires_at").notNull(),
+    createdAt: timestamp("created_at"),
+  },
+  (table) => [index("sessions_user").on(table.userId)]
+);

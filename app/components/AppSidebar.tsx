@@ -1,11 +1,11 @@
 "use client";
 
-import { Ellipsis, LayoutGrid, Sparkles, Store } from "lucide-react";
+import { LayoutGrid, LogOut, Sparkles, Store } from "lucide-react";
 
 import { navItems } from "../fixtures/navigation";
 import type { Notify, View } from "../types";
 
-export function AppSidebar({ view, activeCount, mobileMenuOpen, onChangeView, onToggleMobileMenu, notify }: { view: View; activeCount: number; mobileMenuOpen: boolean; onChangeView: (view: View) => void; onToggleMobileMenu: () => void; notify: Notify }) {
+export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, onChangeView, onToggleMobileMenu, notify }: { view: View; activeCount: number; mobileMenuOpen: boolean; signedInAs: string; onChangeView: (view: View) => void; onToggleMobileMenu: () => void; notify: Notify }) {
   return (
     <aside className="sidebar">
       <button className="brand" onClick={() => onChangeView("today")} aria-label="กลับหน้าวันนี้">
@@ -52,8 +52,10 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, onChangeView, on
         <div className="upgrade-card"><span><Sparkles size={16} strokeWidth={1.9} /></span><strong>ปลดล็อกข้อมูลเชิงลึก</strong><small>เชื่อมต้นทุนให้ครบ เพื่อเห็นกำไรที่แม่นยำขึ้น</small><button onClick={() => notify("ตัวอย่าง — หน้าตั้งค่าการเชื่อมต่อช่องทางยังไม่เปิดใช้งาน", "demo")}>จัดการการเชื่อมต่อ</button></div>
         <div className="store-card">
           <div className="store-avatar">ML</div>
-          <div><strong>ร้าน Mali Living</strong><small>เชื่อมต่อแล้ว 3 ช่องทาง</small></div>
-          <button aria-label="เปิดเมนูร้าน" onClick={() => notify("ตัวอย่าง — เมนูจัดการร้านยังไม่เปิดใช้งาน", "demo")}><Ellipsis size={18} /></button>
+          <div><strong>ร้าน Mali Living</strong><small>{signedInAs}</small></div>
+          <form method="post" action="/api/auth/logout">
+            <button type="submit" aria-label="ออกจากระบบ" title="ออกจากระบบ"><LogOut size={17} /></button>
+          </form>
         </div>
       </div>
     </aside>

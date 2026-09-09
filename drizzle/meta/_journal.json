@@ -22,6 +22,13 @@
       "when": 1788939773279,
       "tag": "0002_broken_bill_hollister",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788944529517,
+      "tag": "0003_dashing_the_renegades",
+      "breakpoints": true
     }
   ]
 }

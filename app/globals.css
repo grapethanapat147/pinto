@@ -209,6 +209,18 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 .data-unavailable p { margin: 0 0 8px; color: var(--muted); font-size: 11px; line-height: 1.7; }
 .data-unavailable .unavailable-hint { color: var(--soft); }
 .data-unavailable code { display: block; margin-top: 14px; padding: 9px 11px; border-radius: 8px; background: #f4efeb; color: var(--soft); font-size: 9px; word-break: break-word; }
+.login-shell { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--canvas); }
+.login-card { width: 100%; max-width: 360px; padding: 32px 28px; text-align: center; }
+.login-card .brand-mark { width: 40px; height: 40px; margin: 0 auto 14px; display: grid; place-items: center; border-radius: 12px; background: #c85410; color: white; }
+.login-card h1 { margin: 0 0 6px; font-size: 21px; letter-spacing: -.4px; }
+.login-tagline { margin: 0 0 24px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.login-line { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: #f4f2f0; color: var(--soft); font-size: 11px; font-weight: 640; cursor: not-allowed; }
+.login-line-note { display: block; margin-top: 7px; color: var(--soft); font-size: 8px; }
+.login-divider { position: relative; margin: 20px 0; color: var(--soft); font-size: 8px; }
+.login-divider::before { content: ""; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--line); }
+.login-divider span { position: relative; padding: 0 10px; background: white; }
+.login-demo { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.login-demo-note { display: block; margin-top: 10px; color: var(--soft); font-size: 8px; line-height: 1.6; }
 .table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #dce4df transparent; }
 
 @keyframes slide-in { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

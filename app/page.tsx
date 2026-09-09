@@ -1,5 +1,8 @@
+import { redirect } from "next/navigation";
+
 import { AppShell } from "./components/AppShell";
 import { DataUnavailable } from "./components/DataUnavailable";
+import { getSession } from "./session";
 import {
   listActions,
   listCampaigns,
@@ -20,6 +23,12 @@ type DashboardData = Awaited<ReturnType<typeof loadDashboard>>;
  */
 async function loadDashboard() {
   try {
+    // Reading the session can fail the same way any other query can — a database outage
+    // must reach DataUnavailable, not throw past it. `redirect()` signals by throwing, so
+    // the anonymous case is returned as a value and acted on outside this try.
+    const session = await getSession();
+    if (!session) return { state: "anonymous" as const };
+
     const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations] =
       await Promise.all([
         listOrders(),
@@ -33,7 +42,8 @@ async function loadDashboard() {
         listRecommendations(),
       ]);
     return {
-      ok: true as const,
+      state: "ok" as const,
+      signedInAs: session.displayName,
       orders,
       inventory,
       actions,
@@ -45,7 +55,7 @@ async function loadDashboard() {
       recommendations,
     };
   } catch (error) {
-    return { ok: false as const, error: error instanceof Error ? error.message : undefined };
+    return { state: "error" as const, error: error instanceof Error ? error.message : undefined };
   }
 }
 
@@ -61,9 +71,8 @@ async function loadDashboard() {
 export default async function Page() {
   const data: DashboardData = await loadDashboard();
 
-  if (!data.ok) {
-    return <DataUnavailable detail={data.error} />;
-  }
+  if (data.state === "error") return <DataUnavailable detail={data.error} />;
+  if (data.state === "anonymous") redirect("/login");
 
   return (
     <AppShell
@@ -76,6 +85,7 @@ export default async function Page() {
       actionImpactTotal={data.actionImpactTotal}
       metrics={data.metrics}
       recommendations={data.recommendations}
+      signedInAs={data.signedInAs}
     />
   );
 }

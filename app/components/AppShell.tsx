@@ -32,6 +32,7 @@ export function AppShell({
   actionImpactTotal,
   metrics,
   recommendations,
+  signedInAs,
 }: {
   orders: Order[];
   inventory: InventoryItem[];
@@ -42,6 +43,7 @@ export function AppShell({
   actionImpactTotal: string;
   metrics: DashboardMetrics;
   recommendations: Record<string, RecommendationPanel>;
+  signedInAs: string;
 }) {
   const [view, setView] = useState<View>("today");
   const [period, setPeriod] = useState("วันนี้");
@@ -102,6 +104,7 @@ export function AppShell({
         view={view}
         activeCount={activeActions.length}
         mobileMenuOpen={mobileMenuOpen}
+        signedInAs={signedInAs}
         onChangeView={changeView}
         onToggleMobileMenu={() => setMobileMenuOpen((current) => !current)}
         notify={notify}
