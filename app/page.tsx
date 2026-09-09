@@ -31,15 +31,15 @@ async function loadDashboard() {
 
     const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations] =
       await Promise.all([
-        listOrders(),
-        listInventory(),
-        listActions(),
-        listConversations(),
-        listCampaigns(),
-        listPayouts(),
-        openActionImpactTotal(),
-        listDashboardMetrics(),
-        listRecommendations(),
+        listOrders(session),
+        listInventory(session),
+        listActions(session),
+        listConversations(session),
+        listCampaigns(session),
+        listPayouts(session),
+        openActionImpactTotal(session),
+        listDashboardMetrics(session),
+        listRecommendations(session),
       ]);
     return {
       state: "ok" as const,

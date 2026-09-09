@@ -362,3 +362,52 @@ test("logout revokes the session server-side", async () => {
   const after = await fetchWorker("/", { headers: { cookie } });
   assert.equal(after.status, 307, "the old cookie must be dead, not just forgotten");
 });
+
+test("rejects unauthenticated writes without touching the database", async () => {
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+  const before = (await db.prepare("SELECT count(*) c FROM actions WHERE resolved_at IS NOT NULL").bind().all())
+    .results[0].c;
+
+  // no cookie at all — this returned 200 and resolved a real action before PIN-0012
+  const resolve = await fetchWorker("/api/actions/1/resolve", { method: "POST" });
+  assert.equal(resolve.status, 401);
+
+  const message = await fetchWorker("/api/conversations/1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ body: "ไม่ควรถูกบันทึก" }),
+  });
+  assert.equal(message.status, 401);
+
+  const after = (await db.prepare("SELECT count(*) c FROM actions WHERE resolved_at IS NOT NULL").bind().all())
+    .results[0].c;
+  assert.equal(after, before, "a rejected write must not change anything");
+  const leaked = (await db.prepare("SELECT count(*) c FROM messages WHERE body = 'ไม่ควรถูกบันทึก'").bind().all())
+    .results[0].c;
+  assert.equal(leaked, 0);
+});
+
+test("scopes every read to the session's own shop", async () => {
+  const seeded = globalThis.__PINTO_TEST_ENV__;
+  const db = createTestD1();
+  globalThis.__PINTO_TEST_ENV__ = { DB: db };
+  try {
+    // a genuine second shop with its own order, so isolation is demonstrated rather than assumed
+    await db.prepare("INSERT INTO shops (id,name,created_at) VALUES (2,'ร้านอื่น','2026-01-01T00:00:00.000Z')").bind().run();
+    await db.prepare("INSERT INTO channels (id,shop_id,code,display_name,kind) VALUES (99,2,'tiktok','TikTok Shop','marketplace')").bind().run();
+    await db
+      .prepare(
+        "INSERT INTO orders (id,shop_id,channel_id,external_id,customer_name,total_satang,status,placed_at) " +
+          "VALUES (999,2,99,'OTHER-SHOP-ORDER','ลูกค้าร้านอื่น',100000,'รอแพ็ก','2026-09-09T03:00:00.000Z')"
+      )
+      .bind()
+      .run();
+
+    const html = await (await render("/", { cookie: await signIn() })).text();
+    assert.match(html, /TT-10842/, "its own shop's order");
+    assert.doesNotMatch(html, /OTHER-SHOP-ORDER/, "another shop's order must not leak");
+    assert.doesNotMatch(html, /ลูกค้าร้านอื่น/, "nor another shop's customer");
+  } finally {
+    globalThis.__PINTO_TEST_ENV__ = seeded;
+  }
+});

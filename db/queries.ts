@@ -21,8 +21,14 @@ import type {
   RecommendationPanel, ShopAction,
 } from "../app/types";
 
-/** The single seeded demo shop. Milestone 4 replaces this with the authenticated shop. */
-const SHOP_ID = 1;
+/**
+ * Every read takes the caller's session and scopes to `session.shopId`.
+ *
+ * Threaded explicitly rather than through ambient context (auth spec): an unscoped query
+ * then fails to compile instead of silently returning another shop's data. The session
+ * rather than a bare shopId because PIN-0013 needs the role at this same layer.
+ */
+import type { SessionUser } from "./auth";
 
 /**
  * Stock status is derived, not stored — storing it would bake in drift the moment
@@ -34,7 +40,7 @@ function stockStatus(onHand: number, daysLeft: number | null): InventoryItem["st
   return "พร้อมขาย";
 }
 
-export async function listOrders(): Promise<Order[]> {
+export async function listOrders(session: SessionUser): Promise<Order[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -48,7 +54,7 @@ export async function listOrders(): Promise<Order[]> {
     })
     .from(orders)
     .innerJoin(channels, eq(channels.id, orders.channelId))
-    .where(eq(orders.shopId, SHOP_ID))
+    .where(eq(orders.shopId, session.shopId))
     .orderBy(desc(orders.placedAt));
 
   return rows.map((row) => ({
@@ -62,7 +68,7 @@ export async function listOrders(): Promise<Order[]> {
   }));
 }
 
-export async function listInventory(): Promise<InventoryItem[]> {
+export async function listInventory(session: SessionUser): Promise<InventoryItem[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -76,7 +82,7 @@ export async function listInventory(): Promise<InventoryItem[]> {
     })
     .from(inventoryLevels)
     .innerJoin(products, eq(products.id, inventoryLevels.productId))
-    .where(eq(inventoryLevels.shopId, SHOP_ID))
+    .where(eq(inventoryLevels.shopId, session.shopId))
     .orderBy(asc(inventoryLevels.id));
 
   return rows.map((row) => ({
@@ -91,12 +97,12 @@ export async function listInventory(): Promise<InventoryItem[]> {
   }));
 }
 
-export async function listActions(): Promise<ShopAction[]> {
+export async function listActions(session: SessionUser): Promise<ShopAction[]> {
   const db = getDb();
   const rows = await db
     .select()
     .from(actions)
-    .where(and(eq(actions.shopId, SHOP_ID), isNull(actions.resolvedAt)))
+    .where(and(eq(actions.shopId, session.shopId), isNull(actions.resolvedAt)))
     .orderBy(asc(actions.id));
 
   return rows.map((row) => ({
@@ -115,7 +121,7 @@ export async function listActions(): Promise<ShopAction[]> {
   }));
 }
 
-export async function listConversations(): Promise<Conversation[]> {
+export async function listConversations(session: SessionUser): Promise<Conversation[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -131,13 +137,13 @@ export async function listConversations(): Promise<Conversation[]> {
     .from(conversations)
     .innerJoin(channels, eq(channels.id, conversations.channelId))
     .leftJoin(orders, eq(orders.id, conversations.orderId))
-    .where(eq(conversations.shopId, SHOP_ID))
+    .where(eq(conversations.shopId, session.shopId))
     .orderBy(desc(conversations.lastMessageAt));
 
   const messageRows = await db
     .select()
     .from(messages)
-    .where(eq(messages.shopId, SHOP_ID))
+    .where(eq(messages.shopId, session.shopId))
     .orderBy(asc(messages.sentAt), asc(messages.id));
 
   return rows.map((row) => ({
@@ -159,7 +165,7 @@ export async function listConversations(): Promise<Conversation[]> {
   }));
 }
 
-export async function listCampaigns(): Promise<Campaign[]> {
+export async function listCampaigns(session: SessionUser): Promise<Campaign[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -172,7 +178,7 @@ export async function listCampaigns(): Promise<Campaign[]> {
     })
     .from(campaigns)
     .innerJoin(channels, eq(channels.id, campaigns.channelId))
-    .where(eq(campaigns.shopId, SHOP_ID))
+    .where(eq(campaigns.shopId, session.shopId))
     .orderBy(asc(campaigns.id));
 
   return rows.map((row) => ({
@@ -186,7 +192,7 @@ export async function listCampaigns(): Promise<Campaign[]> {
   }));
 }
 
-export async function listPayouts(): Promise<Payout[]> {
+export async function listPayouts(session: SessionUser): Promise<Payout[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -198,7 +204,7 @@ export async function listPayouts(): Promise<Payout[]> {
     })
     .from(payouts)
     .innerJoin(channels, eq(channels.id, payouts.channelId))
-    .where(eq(payouts.shopId, SHOP_ID))
+    .where(eq(payouts.shopId, session.shopId))
     .orderBy(asc(payouts.expectedOn));
 
   return rows.map((row) => ({
@@ -211,12 +217,12 @@ export async function listPayouts(): Promise<Payout[]> {
 }
 
 /** Spec Q3: the Action Center headline stops being a literal and becomes a live sum. */
-export async function openActionImpactTotal(): Promise<string> {
+export async function openActionImpactTotal(session: SessionUser): Promise<string> {
   const db = getDb();
   const [row] = await db
     .select({ total: sum(actions.impactSatang) })
     .from(actions)
-    .where(and(eq(actions.shopId, SHOP_ID), isNull(actions.resolvedAt)));
+    .where(and(eq(actions.shopId, session.shopId), isNull(actions.resolvedAt)));
   return formatBaht(Number(row?.total ?? 0));
 }
 
@@ -227,9 +233,9 @@ export async function openActionImpactTotal(): Promise<string> {
  * become aggregates over the domain tables. Values are stored as numbers and formatted
  * here, so nothing in a component is a display string any more.
  */
-export async function listDashboardMetrics(): Promise<DashboardMetrics> {
+export async function listDashboardMetrics(session: SessionUser): Promise<DashboardMetrics> {
   const db = getDb();
-  const where = eq(dashboardMetrics.shopId, SHOP_ID);
+  const where = eq(dashboardMetrics.shopId, session.shopId);
 
   const [metricRows, channelRows, segmentRows, regionRows, waterfallRows, restockRows, opportunityRows] =
     await Promise.all([
@@ -244,15 +250,15 @@ export async function listDashboardMetrics(): Promise<DashboardMetrics> {
         })
         .from(channelMetrics)
         .innerJoin(channels, eq(channels.id, channelMetrics.channelId))
-        .where(eq(channelMetrics.shopId, SHOP_ID)),
-      db.select().from(customerSegments).where(eq(customerSegments.shopId, SHOP_ID)).orderBy(asc(customerSegments.sortOrder)),
-      db.select().from(regions).where(eq(regions.shopId, SHOP_ID)).orderBy(asc(regions.sortOrder)),
-      db.select().from(waterfallSteps).where(eq(waterfallSteps.shopId, SHOP_ID)).orderBy(asc(waterfallSteps.sortOrder)),
+        .where(eq(channelMetrics.shopId, session.shopId)),
+      db.select().from(customerSegments).where(eq(customerSegments.shopId, session.shopId)).orderBy(asc(customerSegments.sortOrder)),
+      db.select().from(regions).where(eq(regions.shopId, session.shopId)).orderBy(asc(regions.sortOrder)),
+      db.select().from(waterfallSteps).where(eq(waterfallSteps.shopId, session.shopId)).orderBy(asc(waterfallSteps.sortOrder)),
       db
         .select({ name: products.name, quantity: restockSuggestions.suggestedQuantity })
         .from(restockSuggestions)
         .innerJoin(products, eq(products.id, restockSuggestions.productId))
-        .where(eq(restockSuggestions.shopId, SHOP_ID))
+        .where(eq(restockSuggestions.shopId, session.shopId))
         .orderBy(asc(restockSuggestions.sortOrder)),
       db
         .select({
@@ -263,7 +269,7 @@ export async function listDashboardMetrics(): Promise<DashboardMetrics> {
         })
         .from(productOpportunities)
         .innerJoin(products, eq(products.id, productOpportunities.productId))
-        .where(eq(productOpportunities.shopId, SHOP_ID))
+        .where(eq(productOpportunities.shopId, session.shopId))
         .orderBy(asc(productOpportunities.sortOrder)),
     ]);
 
@@ -340,12 +346,12 @@ export async function listDashboardMetrics(): Promise<DashboardMetrics> {
  * integer column and is interpolated here. That keeps money an integer while leaving the
  * sentence intact — storing the finished sentence would freeze the number into prose.
  */
-export async function listRecommendations(): Promise<Record<string, RecommendationPanel>> {
+export async function listRecommendations(session: SessionUser): Promise<Record<string, RecommendationPanel>> {
   const db = getDb();
   const rows = await db
     .select()
     .from(recommendations)
-    .where(eq(recommendations.shopId, SHOP_ID))
+    .where(eq(recommendations.shopId, session.shopId))
     .orderBy(asc(recommendations.sortOrder));
 
   const fill = (template: string, satangValue: number | null) =>
