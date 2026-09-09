@@ -12,3 +12,4 @@
 | PIN-0008 | Honest states when there is no data | 2 |
 | PIN-0009 | Seed the presentation tables and wire the metric tiles | 2 |
 | PIN-0010 | Model the Pinto แนะนำ recommendation panels as data | 3 |
+| PIN-0011 | Users, sessions, and the demo provider | 4 |
