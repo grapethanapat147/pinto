@@ -15,3 +15,4 @@
 | PIN-0011 | Users, sessions, and the demo provider | 4 |
 | PIN-0012 | Session-scoped data access, and an unauthenticated write API | 4 |
 | PIN-0013 | Roles: staff cannot read finance | 4 |
+| PIN-0015 | Channel identity, health, and a demo adapter | 3 |
