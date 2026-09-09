@@ -18,7 +18,7 @@ import { OrdersView } from "./OrdersView";
 import { StockView } from "./StockView";
 import { TodayView } from "./TodayView";
 import type {
-  Campaign, Conversation, DashboardMetrics, InventoryItem, Order, Payout,
+  Campaign, ChannelSyncRow, Conversation, DashboardMetrics, InventoryItem, Order, Payout,
   RecommendationPanel, ShopAction, ToastTone, View,
 } from "../types";
 
@@ -34,6 +34,7 @@ export function AppShell({
   recommendations,
   signedInAs,
   role,
+  channelSync,
 }: {
   orders: Order[];
   inventory: InventoryItem[];
@@ -46,6 +47,7 @@ export function AppShell({
   recommendations: Record<string, RecommendationPanel>;
   signedInAs: string;
   role: "owner" | "staff";
+  channelSync: ChannelSyncRow[];
 }) {
   const [view, setView] = useState<View>("today");
   // belt and braces: the finance data is already absent for staff, but do not route there either
@@ -140,7 +142,7 @@ export function AppShell({
           )}
           {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} tiles={metrics.tiles.orders ?? []} notify={notify} />}
           {view === "inbox" && <InboxView conversations={conversations} tiles={metrics.tiles.inbox ?? []} notify={notify} />}
-          {view === "stock" && <StockView inventory={inventory} metrics={metrics} recommendation={recommendations.stock} notify={notify} />}
+          {view === "stock" && <StockView inventory={inventory} metrics={metrics} channelSync={channelSync} recommendation={recommendations.stock} notify={notify} />}
           {view === "growth" && <GrowthView campaigns={campaigns} metrics={metrics} recommendation={recommendations.growth} notify={notify} />}
           {view === "customers" && <CustomersView metrics={metrics} recommendation={recommendations.customers} notify={notify} />}
           {view === "money" && canSeeFinance && <MoneyView payouts={payouts} metrics={metrics} notify={notify} />}

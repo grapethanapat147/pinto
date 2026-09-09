@@ -344,10 +344,24 @@ test("stores only the token digest, and honours the row's expiry", async () => {
   assert.ok(!rows.some((row) => row.id === token), "the raw token must never be stored");
   assert.ok(rows.every((row) => /^[0-9a-f]{64}$/.test(row.id)), "sessions.id should be a sha-256");
 
-  // expire the row without touching the cookie: the row is the authority
-  await db.prepare("UPDATE sessions SET expires_at = '2020-01-01T00:00:00.000Z'").bind().run();
+  // Expire only *this* session's row, leaving the cookie untouched: the row is the
+  // authority. Scoped by id — an unscoped UPDATE expired every session including the
+  // shared one, so later tests silently ran unauthenticated.
+  // Derive this token's own digest. `rows.at(-1)` was wrong: SELECT has no ordering, so it
+  // could pick the shared session and expire it, leaving every later render unauthenticated.
+  const digestBytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  const digest = [...new Uint8Array(digestBytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  assert.ok(rows.some((row) => row.id === digest), "the digest should match a stored row");
+  await db
+    .prepare("UPDATE sessions SET expires_at = '2020-01-01T00:00:00.000Z' WHERE id = ?")
+    .bind(digest)
+    .run();
   const stale = await fetchWorker("/", { headers: { cookie: `pinto_session=${token}` } });
   assert.equal(stale.status, 307, "an expired row must reject its own live cookie");
+
+  const others = (await db.prepare("SELECT count(*) c FROM sessions WHERE expires_at > '2026-01-01'").bind().all())
+    .results[0].c;
+  assert.ok(others > 0, "other sessions must be untouched");
 });
 
 test("logout revokes the session server-side", async () => {
@@ -439,4 +453,47 @@ test("staff never receive finance data, owners do", async () => {
 test("rejects an unknown demo identity", async () => {
   const response = await fetchWorker("/api/auth/demo?as=admin", { method: "POST" });
   assert.equal(response.status, 400, "only the seeded demo identities may be requested");
+});
+
+test("resolves channel identity from data, and refuses an unknown code", async () => {
+  const { loadChannels, requireChannel } = await import("../db/channels.ts");
+  const session = { userId: 1, shopId: 1, role: "owner", displayName: "ทดสอบ", pictureUrl: null };
+
+  const known = await loadChannels(session);
+  assert.equal(requireChannel(known, "tiktok").shortName, "TikTok");
+  assert.equal(requireChannel(known, "line").shortName, "LINE");
+  assert.equal(requireChannel(known, "line").accent, "line");
+
+  // the old ternary rendered anything unrecognised as TikTok, silently
+  assert.throws(
+    () => requireChannel(known, "lazada"),
+    /Unknown channel code/,
+    "an unknown channel must fail loudly, not become TikTok"
+  );
+});
+
+test("the sync grid reports real per-channel health", async () => {
+  const { listChannelSync } = await import("../db/queries.ts");
+  const session = { userId: 1, shopId: 1, role: "owner", displayName: "ทดสอบ", pictureUrl: null };
+  const rows = await listChannelSync(session);
+
+  assert.equal(rows.length, 3, "marketplaces and chat, not ad platforms");
+
+  const tiktok = rows.find((r) => r.code === "tiktok");
+  assert.equal(tiktok.state, "degraded", "seeded unhealthy so the grid demonstrates itself");
+  assert.equal(tiktok.label, "ต้องตรวจสอบ");
+  assert.equal(tiktok.detail, "สต๊อกบางรายการรออัปเดต");
+
+  // a healthy channel with no detail must report its last sync, not "not connected" —
+  // conflating "no health row" with "null detail" printed exactly that
+  const shopee = rows.find((r) => r.code === "shopee");
+  assert.equal(shopee.state, "healthy");
+  assert.match(shopee.detail, /ซิงก์ล่าสุด/);
+  assert.doesNotMatch(shopee.detail, /ยังไม่ได้เชื่อมต่อ/);
+
+  // the accent is data, not sniffed from the display name
+  assert.deepEqual(rows.map((r) => r.accent).sort(), ["line", "shopee", "tiktok"]);
+
+  // and it reaches the page
+  assert.match(await (await render()).text(), /สต๊อกบางรายการรออัปเดต/);
 });

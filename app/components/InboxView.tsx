@@ -68,7 +68,7 @@ export function InboxView({ conversations, tiles, notify }: { conversations: Con
           <div className="inbox-channel-filter">{channelFilters.map((item) => <button key={item} className={channelFilter === item ? "active" : ""} onClick={() => changeChannelFilter(item)}>{item}</button>)}</div>
           <div className="conversation-list">{filteredConversations.map((conversation) => (
             <button key={conversation.id} className={selectedConversation.id === conversation.id ? "active" : ""} onClick={() => setSelectedConversationId(conversation.id)}>
-              <span className={`channel-logo ${conversation.channel.toLowerCase()}`}>{conversation.channel[0]}</span>
+              <span className={`channel-logo ${conversation.channelAccent}`}>{conversation.channel[0]}</span>
               <div><strong>{conversation.name}</strong><small>{conversation.preview}</small><em>{conversation.topic}</em></div>
               <span className="conversation-meta"><small>{conversation.time}</small>{conversation.unread > 0 && <b>{conversation.unread}</b>}</span>
             </button>
@@ -76,7 +76,7 @@ export function InboxView({ conversations, tiles, notify }: { conversations: Con
         </aside>
 
         <article className="conversation-detail">
-          <header><div><span className={`channel-logo ${selectedConversation.channel.toLowerCase()}`}>{selectedConversation.channel[0]}</span><div><h3>{selectedConversation.name}</h3><p>{selectedConversation.channel} · ตอบกลับเร็ว</p></div></div><button className="secondary-button" onClick={() => notify(`ตัวอย่าง — หน้ารายละเอียดออเดอร์ ${selectedConversation.order} ยังไม่เปิดใช้งาน`, "demo")}>{selectedConversation.order}</button></header>
+          <header><div><span className={`channel-logo ${selectedConversation.channelAccent}`}>{selectedConversation.channel[0]}</span><div><h3>{selectedConversation.name}</h3><p>{selectedConversation.channel} · ตอบกลับเร็ว</p></div></div><button className="secondary-button" onClick={() => notify(`ตัวอย่าง — หน้ารายละเอียดออเดอร์ ${selectedConversation.order} ยังไม่เปิดใช้งาน`, "demo")}>{selectedConversation.order}</button></header>
           <div className="conversation-context"><span><ShoppingCart size={16} />{selectedConversation.topic}</span><span><CircleCheck size={16} />ลูกค้าเดิม · 3 ออเดอร์</span></div>
           <div className="message-thread">
             <div className="message-date">วันนี้</div>

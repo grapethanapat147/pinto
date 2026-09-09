@@ -7,6 +7,7 @@ import {
   listActions,
   listCampaigns,
   listConversations,
+  listChannelSync,
   listDashboardMetrics,
   listInventory,
   listOrders,
@@ -34,7 +35,7 @@ async function loadDashboard() {
     // component, and anything sent to it is readable however the nav is drawn.
     const canSeeFinance = session.role === "owner";
 
-    const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations] =
+    const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations, channelSync] =
       await Promise.all([
         listOrders(session),
         listInventory(session),
@@ -45,6 +46,7 @@ async function loadDashboard() {
         openActionImpactTotal(session),
         listDashboardMetrics(session),
         listRecommendations(session),
+        listChannelSync(session),
       ]);
 
     if (!canSeeFinance) {
@@ -65,6 +67,7 @@ async function loadDashboard() {
       actionImpactTotal,
       metrics,
       recommendations,
+      channelSync,
     };
   } catch (error) {
     return { state: "error" as const, error: error instanceof Error ? error.message : undefined };
@@ -99,6 +102,7 @@ export default async function Page() {
       recommendations={data.recommendations}
       signedInAs={data.signedInAs}
       role={data.role}
+      channelSync={data.channelSync}
     />
   );
 }

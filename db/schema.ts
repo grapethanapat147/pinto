@@ -38,6 +38,10 @@ export const channels = sqliteTable(
     shopId: integer("shop_id").notNull().references(() => shops.id),
     code: text("code").notNull(),
     displayName: text("display_name").notNull(),
+    /** Short form used in tables and chat headers, e.g. "TikTok" for "TikTok Shop". */
+    shortName: text("short_name").notNull().default(""),
+    /** Logo class. Data rather than something recovered by sniffing the display name. */
+    accent: text("accent").notNull().default("tiktok"),
     kind: text("kind", { enum: ["marketplace", "ads", "chat"] }).notNull(),
   },
   (table) => [unique("channels_shop_code").on(table.shopId, table.code)]
@@ -356,4 +360,25 @@ export const sessions = sqliteTable(
     createdAt: timestamp("created_at"),
   },
   (table) => [index("sessions_user").on(table.userId)]
+);
+
+
+/**
+ * Per-channel connection state, owned by that channel's adapter (PIN-0015).
+ *
+ * StockView's sync grid was three hardcoded blocks that always read "ปกติ", so it could
+ * never show a real problem — the one thing a sync indicator exists to do.
+ */
+export const channelHealth = sqliteTable(
+  "channel_health",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    shopId: integer("shop_id").notNull().references(() => shops.id),
+    channelId: integer("channel_id").notNull().references(() => channels.id),
+    state: text("state", { enum: ["healthy", "syncing", "degraded", "disconnected"] }).notNull(),
+    /** Shown beside the state when the adapter has something specific to say. */
+    detail: text("detail"),
+    lastSyncedAt: text("last_synced_at"),
+  },
+  (table) => [unique("channel_health_channel").on(table.channelId)]
 );

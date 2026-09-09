@@ -28,7 +28,7 @@ export function OrdersView({ query, setQuery, orders: visibleOrders, tiles, noti
           <div className="order-row order-head"><span>ออเดอร์</span><span>ลูกค้า</span><span>ช่องทาง</span><span>ยอดรวม</span><span>สถานะ</span><span>เวลา</span></div>
           {filteredOrders.map((order) => (
             <button className="order-row" key={order.id} onClick={() => notify(`ตัวอย่าง — หน้ารายละเอียดออเดอร์ ${order.id} ยังไม่เปิดใช้งาน`, "demo")}>
-              <strong>{order.id}</strong><span>{order.customer}</span><span><i className={`channel-logo ${order.channel.toLowerCase()}`}>{order.channel[0]}</i>{order.channel}</span><strong>{order.total}</strong><StatusPill tone={order.status === "ตรวจสอบ" ? "danger" : order.status === "จัดส่งแล้ว" ? "good" : "neutral"}>{order.status}</StatusPill><span>{order.time}</span>
+              <strong>{order.id}</strong><span>{order.customer}</span><span><i className={`channel-logo ${order.channelAccent}`}>{order.channel[0]}</i>{order.channel}</span><strong>{order.total}</strong><StatusPill tone={order.status === "ตรวจสอบ" ? "danger" : order.status === "จัดส่งแล้ว" ? "good" : "neutral"}>{order.status}</StatusPill><span>{order.time}</span>
             </button>
           ))}
         </div>

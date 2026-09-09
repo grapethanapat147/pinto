@@ -57,6 +57,7 @@ export type Conversation = {
   id: number;
   name: string;
   channel: string;
+  channelAccent: string;
   preview: string;
   time: string;
   unread: number;
@@ -69,6 +70,8 @@ export type Order = {
   id: string;
   customer: string;
   channel: string;
+  /** Logo class, resolved server-side rather than sniffed from `channel`. */
+  channelAccent: string;
   total: string;
   status: string;
   time: string;
@@ -85,6 +88,7 @@ export type Campaign = {
 
 export type Payout = {
   platform: string;
+  accent: string;
   date: string;
   orders: string;
   amount: string;
@@ -119,6 +123,24 @@ export type DashboardMetrics = {
   restock: RestockRow[];
   opportunities: OpportunityRow[];
 };
+
+/**
+ * Seed input shapes. The fixtures describe what goes *into* the database; `channelAccent`
+ * and `accent` are resolved from the channels table on read, so they are not seed data.
+ */
+export type ChannelSyncRow = {
+  code: string;
+  displayName: string;
+  accent: string;
+  state: "healthy" | "syncing" | "degraded" | "disconnected";
+  label: string;
+  detail: string;
+  tone: string;
+};
+
+export type SeedOrder = Omit<Order, "channelAccent">;
+export type SeedConversation = Omit<Conversation, "channelAccent">;
+export type SeedPayout = Omit<Payout, "accent">;
 
 export type RecommendationPanel = {
   scope: string;

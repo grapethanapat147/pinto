@@ -80,11 +80,11 @@ function messageTime(stamp: string): string {
  * spelling cannot slip through as a silent miss.
  */
 const CHANNELS = [
-  { code: "tiktok", displayName: "TikTok Shop", kind: "marketplace" },
-  { code: "shopee", displayName: "Shopee", kind: "marketplace" },
-  { code: "line", displayName: "LINE MyShop", kind: "chat" },
-  { code: "tiktok_ads", displayName: "TikTok Ads", kind: "ads" },
-  { code: "meta_ads", displayName: "Meta", kind: "ads" },
+  { code: "tiktok", displayName: "TikTok Shop", shortName: "TikTok", accent: "tiktok", kind: "marketplace" },
+  { code: "shopee", displayName: "Shopee", shortName: "Shopee", accent: "shopee", kind: "marketplace" },
+  { code: "line", displayName: "LINE MyShop", shortName: "LINE", accent: "line", kind: "chat" },
+  { code: "tiktok_ads", displayName: "TikTok Ads", shortName: "TikTok", accent: "tiktok", kind: "ads" },
+  { code: "meta_ads", displayName: "Meta", shortName: "Meta", accent: "meta", kind: "ads" },
 ] as const;
 
 const CHANNEL_ALIASES: Record<string, string> = {
@@ -126,7 +126,7 @@ for (const t of [
   // presentation scaffolding (schema-v1 Q1c)
   "dashboard_metrics", "channel_metrics", "customer_segments", "regions",
   "waterfall_steps", "restock_suggestions", "product_opportunities", "recommendations",
-  "sessions", "users",
+  "sessions", "users", "channel_health",
   "channels", "shops",
 ]) {
   out.push(`DELETE FROM \`${t}\`;`);
@@ -136,8 +136,8 @@ insert("shops", ["id", "name", "created_at"], [[1, SHOP, SEED_AT.toISOString()]]
 
 insert(
   "channels",
-  ["id", "shop_id", "code", "display_name", "kind"],
-  CHANNELS.map((c, i) => [i + 1, 1, c.code, c.displayName, c.kind])
+  ["id", "shop_id", "code", "display_name", "short_name", "accent", "kind"],
+  CHANNELS.map((c, i) => [i + 1, 1, c.code, c.displayName, c.shortName, c.accent, c.kind])
 );
 
 insert(
@@ -323,6 +323,21 @@ insert(
     [1, 1, "demo", "demo-owner", "คุณมะลิ", null, "owner", SEED_AT.toISOString()],
     // a staff demo too, so the role difference can be shown to a client rather than described
     [2, 1, "demo", "demo-staff", "คุณฟ้า (พนักงาน)", null, "staff", SEED_AT.toISOString()],
+  ]
+);
+
+// One channel is seeded degraded on purpose: three identical "ปกติ" rows would not show
+// that the grid works. The fixtures already hint at it — inventory carries
+// "TikTok รออัปเดต" as its sync_state.
+const minutesAgo = (n: number) => new Date(SEED_AT.getTime() - n * 60_000).toISOString();
+
+insert(
+  "channel_health",
+  ["id", "shop_id", "channel_id", "state", "detail", "last_synced_at"],
+  [
+    [1, 1, channelId("TikTok Shop"), "degraded", "สต๊อกบางรายการรออัปเดต", minutesAgo(37)],
+    [2, 1, channelId("Shopee"), "healthy", null, minutesAgo(2)],
+    [3, 1, channelId("LINE MyShop"), "healthy", null, minutesAgo(4)],
   ]
 );
 

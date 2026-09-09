@@ -5,9 +5,9 @@ import { ShoppingCart, Sparkles } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
-import type { DashboardMetrics, InventoryItem, Notify, RecommendationPanel } from "../types";
+import type { ChannelSyncRow, DashboardMetrics, InventoryItem, Notify, RecommendationPanel } from "../types";
 
-export function StockView({ inventory, metrics, recommendation, notify }: { inventory: InventoryItem[]; metrics: DashboardMetrics; recommendation?: RecommendationPanel; notify: Notify }) {
+export function StockView({ inventory, metrics, channelSync, recommendation, notify }: { inventory: InventoryItem[]; metrics: DashboardMetrics; channelSync: ChannelSyncRow[]; recommendation?: RecommendationPanel; notify: Notify }) {
   const tiles = metrics.tiles.stock ?? [];
   const [stockFilter, setStockFilter] = useState("ทั้งหมด");
   const stockFilters = ["ทั้งหมด", "ใกล้หมด", "หมดสต๊อก", "พร้อมขาย"];
@@ -50,9 +50,13 @@ export function StockView({ inventory, metrics, recommendation, notify }: { inve
       </section>
 
       <section className="channel-sync-grid" aria-label="สถานะการเชื่อมต่อสต๊อก">
-        <article><i className="channel-logo tiktok">T</i><div><strong>TikTok Shop</strong><span>ซิงก์ล่าสุด 1 นาทีที่แล้ว</span></div><StatusPill tone="good">ปกติ</StatusPill></article>
-        <article><i className="channel-logo shopee">S</i><div><strong>Shopee</strong><span>ซิงก์ล่าสุด 2 นาทีที่แล้ว</span></div><StatusPill tone="good">ปกติ</StatusPill></article>
-        <article><i className="channel-logo line">L</i><div><strong>LINE MyShop</strong><span>ซิงก์ล่าสุด 4 นาทีที่แล้ว</span></div><StatusPill tone="good">ปกติ</StatusPill></article>
+        {channelSync.map((row) => (
+          <article key={row.code}>
+            <i className={`channel-logo ${row.accent}`}>{row.displayName[0]}</i>
+            <div><strong>{row.displayName}</strong><span>{row.detail}</span></div>
+            <StatusPill tone={row.tone}>{row.label}</StatusPill>
+          </article>
+        ))}
       </section>
     </>
   );

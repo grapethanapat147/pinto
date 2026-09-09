@@ -1,6 +1,6 @@
-import type { Conversation } from "../types";
+import type { SeedConversation } from "../types";
 
-export const conversations: Conversation[] = [
+export const conversations: SeedConversation[] = [
   { id: 1, name: "คุณปริม", channel: "TikTok", preview: "ถ้าสั่งวันนี้จะส่งทันวันศุกร์ไหมคะ", time: "10:41", unread: 2, order: "TT-10842", topic: "สอบถามการจัดส่ง", messages: [
     { from: "customer", text: "สวัสดีค่ะ สนใจแจกันสีครีม 2 ใบ", time: "10:39" },
     { from: "customer", text: "ถ้าสั่งวันนี้จะส่งทันวันศุกร์ไหมคะ", time: "10:41" },

@@ -1,6 +1,6 @@
-import type { Order } from "../types";
+import type { SeedOrder } from "../types";
 
-export const orders: Order[] = [
+export const orders: SeedOrder[] = [
   { id: "TT-10842", customer: "พรทิพย์ ส.", channel: "TikTok", total: "฿1,890", status: "รอแพ็ก", time: "10:36" },
   { id: "SP-48219", customer: "Nicha Home", channel: "Shopee", total: "฿780", status: "พร้อมส่ง", time: "10:28" },
   { id: "TT-10841", customer: "ชนิดา ก.", channel: "TikTok", total: "฿2,450", status: "ตรวจสอบ", time: "10:17" },

@@ -89,7 +89,7 @@ export function TodayView({ period, actions, metrics, payouts, canSeeFinance, on
             <div className="channel-table table-scroll">
               <div className="table-row table-head"><span>ช่องทาง</span><span>ยอดขาย</span><span>ออเดอร์</span><span>กำไร</span><span>อัตรากำไร</span></div>
               {metrics.channels.map((row) => (
-                <div className="table-row" key={row.code}><span><i className={`channel-logo ${row.code === "tiktok" ? "tiktok" : row.code}`}>{row.channel[0]}</i>{row.channel}</span><span>{row.sales}</span><span>{row.orders}</span><strong>{row.profit}</strong><StatusPill tone="good">{row.margin}</StatusPill></div>
+                <div className="table-row" key={row.code}><span><i className={`channel-logo ${row.code}`}>{row.channel[0]}</i>{row.channel}</span><span>{row.sales}</span><span>{row.orders}</span><strong>{row.profit}</strong><StatusPill tone="good">{row.margin}</StatusPill></div>
               ))}
             </div>
           </section>
@@ -108,7 +108,7 @@ export function TodayView({ period, actions, metrics, payouts, canSeeFinance, on
           {canSeeFinance && <section className="payout-schedule">
             <div className="rail-heading"><h3>เงินที่กำลังจะเข้า</h3><button className="icon-text-button" onClick={() => notify("ตัวอย่าง — หน้ากำหนดการรับเงินยังไม่เปิดใช้งาน", "demo")}>ดูทั้งหมด <ArrowRight size={14} /></button></div>
             {payouts.map((payout, index) => (
-              <article key={payout.platform}><i className={`channel-logo ${payout.platform.startsWith("TikTok") ? "tiktok" : payout.platform.startsWith("Shopee") ? "shopee" : "line"}`}>{payout.platform[0]}</i><div><strong>{payout.platform}</strong><span>{index === 0 ? "พรุ่งนี้" : payout.date} · {payout.orders}</span></div><b>{payout.amount}</b></article>
+              <article key={payout.platform}><i className={`channel-logo ${payout.accent}`}>{payout.platform[0]}</i><div><strong>{payout.platform}</strong><span>{index === 0 ? "พรุ่งนี้" : payout.date} · {payout.orders}</span></div><b>{payout.amount}</b></article>
             ))}
           </section>}
         </aside>

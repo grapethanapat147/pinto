@@ -29,6 +29,13 @@
       "when": 1788944529517,
       "tag": "0003_dashing_the_renegades",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1788972184075,
+      "tag": "0004_loose_roxanne_simpson",
+      "breakpoints": true
     }
   ]
 }

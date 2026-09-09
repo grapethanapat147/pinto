@@ -17,7 +17,7 @@ import {
   formatThaiDay, formatTime, formatUpdatedAt,
 } from "../app/format";
 import type {
-  Campaign, Conversation, DashboardMetrics, InventoryItem, Order, Payout,
+  Campaign, ChannelSyncRow, Conversation, DashboardMetrics, InventoryItem, Order, Payout,
   RecommendationPanel, ShopAction,
 } from "../app/types";
 
@@ -29,6 +29,7 @@ import type {
  * rather than a bare shopId because PIN-0013 needs the role at this same layer.
  */
 import type { SessionUser } from "./auth";
+import { listChannelHealth, loadChannels, requireChannel } from "./channels";
 
 /**
  * Stock status is derived, not stored — storing it would bake in drift the moment
@@ -46,7 +47,6 @@ export async function listOrders(session: SessionUser): Promise<Order[]> {
     .select({
       externalId: orders.externalId,
       customerName: orders.customerName,
-      channel: channels.displayName,
       channelCode: channels.code,
       totalSatang: orders.totalSatang,
       status: orders.status,
@@ -57,11 +57,12 @@ export async function listOrders(session: SessionUser): Promise<Order[]> {
     .where(eq(orders.shopId, session.shopId))
     .orderBy(desc(orders.placedAt));
 
+  const known = await loadChannels(session);
   return rows.map((row) => ({
     id: row.externalId,
     customer: row.customerName,
-    // views render the short channel name and derive the logo class from it
-    channel: row.channelCode === "line" ? "LINE" : row.channelCode === "shopee" ? "Shopee" : "TikTok",
+    channel: requireChannel(known, row.channelCode).shortName,
+    channelAccent: requireChannel(known, row.channelCode).accent,
     total: formatBaht(row.totalSatang),
     status: row.status,
     time: formatTime(row.placedAt),
@@ -146,10 +147,12 @@ export async function listConversations(session: SessionUser): Promise<Conversat
     .where(eq(messages.shopId, session.shopId))
     .orderBy(asc(messages.sentAt), asc(messages.id));
 
+  const known = await loadChannels(session);
   return rows.map((row) => ({
     id: row.id,
     name: row.customerName,
-    channel: row.channelCode === "line" ? "LINE" : row.channelCode === "shopee" ? "Shopee" : "TikTok",
+    channel: requireChannel(known, row.channelCode).shortName,
+    channelAccent: requireChannel(known, row.channelCode).accent,
     preview: row.preview,
     time: formatTime(row.lastMessageAt),
     unread: row.unreadCount,
@@ -181,10 +184,10 @@ export async function listCampaigns(session: SessionUser): Promise<Campaign[]> {
     .where(eq(campaigns.shopId, session.shopId))
     .orderBy(asc(campaigns.id));
 
+  const known = await loadChannels(session);
   return rows.map((row) => ({
     name: row.name,
-    // the table shows the short platform name, not the ad-account name
-    channel: row.channelCode === "tiktok_ads" ? "TikTok" : row.channel,
+    channel: requireChannel(known, row.channelCode).shortName,
     spend: formatBaht(row.spendSatang),
     revenue: formatBaht(row.revenueSatang),
     roas: formatRoas(row.spendSatang, row.revenueSatang),
@@ -197,6 +200,7 @@ export async function listPayouts(session: SessionUser): Promise<Payout[]> {
   const rows = await db
     .select({
       platform: channels.displayName,
+      accent: channels.accent,
       expectedOn: payouts.expectedOn,
       orderCount: payouts.orderCount,
       amountSatang: payouts.amountSatang,
@@ -209,6 +213,7 @@ export async function listPayouts(session: SessionUser): Promise<Payout[]> {
 
   return rows.map((row) => ({
     platform: row.platform,
+    accent: row.accent,
     date: formatThaiDay(row.expectedOn),
     orders: `${row.orderCount} ออเดอร์`,
     amount: formatBaht(row.amountSatang),
@@ -244,6 +249,7 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
         .select({
           channel: channels.displayName,
           code: channels.code,
+          accent: channels.accent,
           salesSatang: channelMetrics.salesSatang,
           orderCount: channelMetrics.orderCount,
           profitSatang: channelMetrics.profitSatang,
@@ -306,7 +312,7 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
     tiles,
     channels: channelRows.map((row) => ({
       channel: row.channel,
-      code: row.code,
+      code: row.accent,
       sales: formatBaht(row.salesSatang),
       orders: String(row.orderCount),
       profit: formatBaht(row.profitSatang),
@@ -377,4 +383,38 @@ export async function listRecommendations(session: SessionUser): Promise<Record<
       },
     ])
   );
+}
+
+
+const SYNC_LABEL: Record<string, { label: string; tone: string }> = {
+  healthy: { label: "ปกติ", tone: "good" },
+  syncing: { label: "กำลังซิงก์", tone: "neutral" },
+  degraded: { label: "ต้องตรวจสอบ", tone: "warning" },
+  disconnected: { label: "ยังไม่เชื่อมต่อ", tone: "danger" },
+};
+
+/** "ซิงก์ล่าสุด 37 นาทีที่แล้ว" — the grid's subtitle, from a real timestamp. */
+function lastSyncedLabel(iso: string | null): string {
+  if (!iso) return "ยังไม่เคยซิงก์";
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (minutes < 1) return "ซิงก์ล่าสุดเมื่อครู่นี้";
+  if (minutes < 60) return `ซิงก์ล่าสุด ${minutes} นาทีที่แล้ว`;
+  return `ซิงก์ล่าสุด ${Math.round(minutes / 60)} ชั่วโมงที่แล้ว`;
+}
+
+/**
+ * StockView's sync grid. It was three hardcoded blocks that always read "ปกติ", so it
+ * could never show a real problem — the one thing a sync indicator is for.
+ */
+export async function listChannelSync(session: SessionUser): Promise<ChannelSyncRow[]> {
+  const reports = await listChannelHealth(session);
+  return reports.map((report) => ({
+    code: report.channel.code,
+    displayName: report.channel.displayName,
+    accent: report.channel.accent,
+    state: report.state,
+    label: SYNC_LABEL[report.state].label,
+    tone: SYNC_LABEL[report.state].tone,
+    detail: report.detail ?? lastSyncedLabel(report.lastSyncedAt),
+  }));
 }
