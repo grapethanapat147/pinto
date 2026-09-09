@@ -21,7 +21,7 @@ import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
 import type { DashboardMetrics, Notify, Payout, ShopAction, View } from "../types";
 
-export function TodayView({ period, actions, metrics, payouts, onOpenAction, onViewActions, onNavigate, notify }: { period: string; actions: ShopAction[]; metrics: DashboardMetrics; payouts: Payout[]; onOpenAction: (action: ShopAction) => void; onViewActions: () => void; onNavigate: (view: View) => void; notify: Notify }) {
+export function TodayView({ period, actions, metrics, payouts, canSeeFinance, onOpenAction, onViewActions, onNavigate, notify }: { period: string; actions: ShopAction[]; metrics: DashboardMetrics; payouts: Payout[]; canSeeFinance: boolean; onOpenAction: (action: ShopAction) => void; onViewActions: () => void; onNavigate: (view: View) => void; notify: Notify }) {
   const data = metrics.periods[period] ?? { profit: "", sales: "", ads: "", orders: "", change: "" };
   const tile = (key: string) => metrics.tiles.today?.find((item) => item.key === key);
   const bars = [42, 76, 58, 88, 64, 82];
@@ -105,12 +105,12 @@ export function TodayView({ period, actions, metrics, payouts, onOpenAction, onV
             <button className="calendar-cta icon-text-button" onClick={() => notify(`ตัวอย่าง — กำหนดการวันที่ ${selectedDay} สิงหาคม ยังไม่เปิดใช้งาน`, "demo")}><CalendarDays size={16} />ดูวันที่ {selectedDay} สิงหาคม</button>
           </section>
 
-          <section className="payout-schedule">
+          {canSeeFinance && <section className="payout-schedule">
             <div className="rail-heading"><h3>เงินที่กำลังจะเข้า</h3><button className="icon-text-button" onClick={() => notify("ตัวอย่าง — หน้ากำหนดการรับเงินยังไม่เปิดใช้งาน", "demo")}>ดูทั้งหมด <ArrowRight size={14} /></button></div>
             {payouts.map((payout, index) => (
               <article key={payout.platform}><i className={`channel-logo ${payout.platform.startsWith("TikTok") ? "tiktok" : payout.platform.startsWith("Shopee") ? "shopee" : "line"}`}>{payout.platform[0]}</i><div><strong>{payout.platform}</strong><span>{index === 0 ? "พรุ่งนี้" : payout.date} · {payout.orders}</span></div><b>{payout.amount}</b></article>
             ))}
-          </section>
+          </section>}
         </aside>
       </div>
     </>

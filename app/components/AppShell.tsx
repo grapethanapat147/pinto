@@ -33,6 +33,7 @@ export function AppShell({
   metrics,
   recommendations,
   signedInAs,
+  role,
 }: {
   orders: Order[];
   inventory: InventoryItem[];
@@ -44,8 +45,11 @@ export function AppShell({
   metrics: DashboardMetrics;
   recommendations: Record<string, RecommendationPanel>;
   signedInAs: string;
+  role: "owner" | "staff";
 }) {
   const [view, setView] = useState<View>("today");
+  // belt and braces: the finance data is already absent for staff, but do not route there either
+  const canSeeFinance = role === "owner";
   const [period, setPeriod] = useState("วันนี้");
   const [selectedAction, setSelectedAction] = useState<ShopAction | null>(null);
   const [resolvedIds, setResolvedIds] = useState<number[]>([]);
@@ -105,6 +109,7 @@ export function AppShell({
         activeCount={activeActions.length}
         mobileMenuOpen={mobileMenuOpen}
         signedInAs={signedInAs}
+        canSeeFinance={canSeeFinance}
         onChangeView={changeView}
         onToggleMobileMenu={() => setMobileMenuOpen((current) => !current)}
         notify={notify}
@@ -121,7 +126,7 @@ export function AppShell({
         />
 
         <div className="page-body">
-          {view === "today" && <TodayView period={period} actions={activeActions.slice(0, 3)} metrics={metrics} payouts={payouts} onOpenAction={setSelectedAction} onViewActions={() => changeView("actions")} onNavigate={changeView} notify={notify} />}
+          {view === "today" && <TodayView period={period} actions={activeActions.slice(0, 3)} metrics={metrics} payouts={payouts} canSeeFinance={canSeeFinance} onOpenAction={setSelectedAction} onViewActions={() => changeView("actions")} onNavigate={changeView} notify={notify} />}
           {view === "actions" && (
             <ActionsView
               actions={visibleActions}
@@ -138,11 +143,11 @@ export function AppShell({
           {view === "stock" && <StockView inventory={inventory} metrics={metrics} recommendation={recommendations.stock} notify={notify} />}
           {view === "growth" && <GrowthView campaigns={campaigns} metrics={metrics} recommendation={recommendations.growth} notify={notify} />}
           {view === "customers" && <CustomersView metrics={metrics} recommendation={recommendations.customers} notify={notify} />}
-          {view === "money" && <MoneyView payouts={payouts} metrics={metrics} notify={notify} />}
+          {view === "money" && canSeeFinance && <MoneyView payouts={payouts} metrics={metrics} notify={notify} />}
         </div>
       </section>
 
-      {mobileMenuOpen && <MobileMoreSheet view={view} onChangeView={changeView} onClose={() => setMobileMenuOpen(false)} />}
+      {mobileMenuOpen && <MobileMoreSheet view={view} canSeeFinance={canSeeFinance} onChangeView={changeView} onClose={() => setMobileMenuOpen(false)} />}
       {selectedAction && <ActionDrawer action={selectedAction} onClose={() => setSelectedAction(null)} onResolve={() => { void resolveAction(selectedAction); }} notify={notify} />}
       {toast && (
         <div className={`toast ${toast.tone}`} role="status">

@@ -5,7 +5,7 @@ import { LayoutGrid, LogOut, Sparkles, Store } from "lucide-react";
 import { navItems } from "../fixtures/navigation";
 import type { Notify, View } from "../types";
 
-export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, onChangeView, onToggleMobileMenu, notify }: { view: View; activeCount: number; mobileMenuOpen: boolean; signedInAs: string; onChangeView: (view: View) => void; onToggleMobileMenu: () => void; notify: Notify }) {
+export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, canSeeFinance, onChangeView, onToggleMobileMenu, notify }: { view: View; activeCount: number; mobileMenuOpen: boolean; signedInAs: string; canSeeFinance: boolean; onChangeView: (view: View) => void; onToggleMobileMenu: () => void; notify: Notify }) {
   return (
     <aside className="sidebar">
       <button className="brand" onClick={() => onChangeView("today")} aria-label="กลับหน้าวันนี้">
@@ -31,7 +31,7 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, onCh
       </nav>
       <small className="nav-label secondary-label">จัดการร้าน</small>
       <nav aria-label="เมนูจัดการร้าน">
-        {navItems.slice(4).map((item) => {
+        {navItems.slice(4).filter((item) => canSeeFinance || item.id !== "money").map((item) => {
           const Icon = item.icon;
           return (
           <button

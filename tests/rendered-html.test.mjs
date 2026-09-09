@@ -26,8 +26,8 @@ async function fetchWorker(pathname, init = {}) {
 }
 
 /** PIN-0011 put the dashboard behind a session, so most tests need one. */
-async function signIn() {
-  const response = await fetchWorker("/api/auth/demo", { method: "POST" });
+async function signIn(as = "owner") {
+  const response = await fetchWorker(`/api/auth/demo?as=${as}`, { method: "POST" });
   const token = (response.headers.get("set-cookie") ?? "").match(/pinto_session=([^;]+)/)?.[1];
   assert.ok(token, "demo sign-in should set a session cookie");
   return `pinto_session=${token}`;
@@ -410,4 +410,33 @@ test("scopes every read to the session's own shop", async () => {
   } finally {
     globalThis.__PINTO_TEST_ENV__ = seeded;
   }
+});
+
+test("staff never receive finance data, owners do", async () => {
+  const ownerHtml = await (await render("/", { cookie: await signIn("owner") })).text();
+  const staffHtml = await (await render("/", { cookie: await signIn("staff") })).text();
+
+  const navOf = (html) => [...html.matchAll(/<em>([^<]+)<\/em>/g)].map((m) => m[1]);
+  assert.ok(navOf(ownerHtml).includes("การเงิน"), "owner keeps the Money nav item");
+  assert.ok(!navOf(staffHtml).includes("การเงิน"), "staff must not see the Money nav item");
+
+  // the real enforcement: the numbers are absent from the payload, not merely unrendered,
+  // because AppShell is a client component and anything sent to it is readable
+  for (const secret of [/฿38,740/, /฿24,680/, /฿126\.8k/]) {
+    assert.match(ownerHtml, secret, "owner should see finance figures");
+    assert.doesNotMatch(staffHtml, secret, "finance figures must not reach staff at all");
+  }
+
+  // performance data is deliberately kept for both — stripping it would gut the dashboard
+  for (const shared of [/TT-10842/, /฿48,720/]) {
+    assert.match(ownerHtml, shared);
+    assert.match(staffHtml, shared);
+  }
+
+  assert.match(staffHtml, /คุณฟ้า/, "signed in as the staff demo user");
+});
+
+test("rejects an unknown demo identity", async () => {
+  const response = await fetchWorker("/api/auth/demo?as=admin", { method: "POST" });
+  assert.equal(response.status, 400, "only the seeded demo identities may be requested");
 });

@@ -221,6 +221,7 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 .login-divider span { position: relative; padding: 0 10px; background: white; }
 .login-demo { min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 .login-demo-note { display: block; margin-top: 10px; color: var(--soft); font-size: 8px; line-height: 1.6; }
+.login-demo-staff { width: 100%; margin-top: 9px; }
 .table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: #dce4df transparent; }
 
 @keyframes slide-in { from { transform: translateX(30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

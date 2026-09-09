@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { MessageCircle, Sparkles, Store } from "lucide-react";
+import { MessageCircle, Sparkles, Store, UserRound } from "lucide-react";
 
 import { getSession } from "../session";
 
@@ -34,13 +34,19 @@ export default async function LoginPage() {
 
         <div className="login-divider"><span>หรือ</span></div>
 
-        <form method="post" action="/api/auth/demo">
+        <form method="post" action="/api/auth/demo?as=owner">
           <button type="submit" className="primary-button wide login-demo">
-            <Sparkles size={17} strokeWidth={1.9} />เข้าสู่ระบบตัวอย่าง
+            <Sparkles size={17} strokeWidth={1.9} />เข้าสู่ระบบตัวอย่าง — เจ้าของร้าน
+          </button>
+        </form>
+        <form method="post" action="/api/auth/demo?as=staff">
+          <button type="submit" className="secondary-button wide login-demo login-demo-staff">
+            <UserRound size={17} strokeWidth={1.9} />เข้าสู่ระบบตัวอย่าง — พนักงาน
           </button>
         </form>
         <small className="login-demo-note">
-          เข้าดูร้านตัวอย่าง Mali Living พร้อมข้อมูลจำลอง ไม่ใช่ข้อมูลร้านจริง
+          ร้านตัวอย่าง Mali Living พร้อมข้อมูลจำลอง ไม่ใช่ข้อมูลร้านจริง
+          <br />พนักงานจะไม่เห็นเมนูการเงินและกำหนดการรับเงิน
         </small>
       </div>
     </main>

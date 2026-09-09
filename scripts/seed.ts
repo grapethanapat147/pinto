@@ -319,7 +319,11 @@ insert(
 insert(
   "users",
   ["id", "shop_id", "provider", "provider_user_id", "display_name", "picture_url", "role", "created_at"],
-  [[1, 1, "demo", "demo-owner", "คุณมะลิ", null, "owner", SEED_AT.toISOString()]]
+  [
+    [1, 1, "demo", "demo-owner", "คุณมะลิ", null, "owner", SEED_AT.toISOString()],
+    // a staff demo too, so the role difference can be shown to a client rather than described
+    [2, 1, "demo", "demo-staff", "คุณฟ้า (พนักงาน)", null, "staff", SEED_AT.toISOString()],
+  ]
 );
 
 console.log(out.join("\n"));

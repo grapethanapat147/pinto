@@ -29,6 +29,11 @@ async function loadDashboard() {
     const session = await getSession();
     if (!session) return { state: "anonymous" as const };
 
+    // PIN-0013: staff lose money *movement*, not performance. The finance queries are
+    // simply not run, so the data never reaches the client — AppShell is a client
+    // component, and anything sent to it is readable however the nav is drawn.
+    const canSeeFinance = session.role === "owner";
+
     const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations] =
       await Promise.all([
         listOrders(session),
@@ -36,14 +41,21 @@ async function loadDashboard() {
         listActions(session),
         listConversations(session),
         listCampaigns(session),
-        listPayouts(session),
+        canSeeFinance ? listPayouts(session) : Promise.resolve([]),
         openActionImpactTotal(session),
         listDashboardMetrics(session),
         listRecommendations(session),
       ]);
+
+    if (!canSeeFinance) {
+      // strip the money tiles out of the metrics bundle before it is serialised
+      delete metrics.tiles.money;
+      metrics.waterfall = [];
+    }
     return {
       state: "ok" as const,
       signedInAs: session.displayName,
+      role: session.role,
       orders,
       inventory,
       actions,
@@ -86,6 +98,7 @@ export default async function Page() {
       metrics={data.metrics}
       recommendations={data.recommendations}
       signedInAs={data.signedInAs}
+      role={data.role}
     />
   );
 }
