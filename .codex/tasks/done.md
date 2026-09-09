@@ -14,3 +14,4 @@
 | PIN-0010 | Model the Pinto แนะนำ recommendation panels as data | 3 |
 | PIN-0011 | Users, sessions, and the demo provider | 4 |
 | PIN-0012 | Session-scoped data access, and an unauthenticated write API | 4 |
+| PIN-0013 | Roles: staff cannot read finance | 4 |
