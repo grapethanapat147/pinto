@@ -1,7 +1,8 @@
 "use client";
 
-import { LayoutGrid, LogOut, Sparkles, Store } from "lucide-react";
+import { LayoutGrid, LogOut, Sparkles } from "lucide-react";
 
+import { PintoLogo } from "./PintoBrand";
 import { navItems } from "../fixtures/navigation";
 import type { Notify, View } from "../types";
 
@@ -9,7 +10,11 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, canS
   return (
     <aside className="sidebar">
       <button className="brand" onClick={() => onChangeView("today")} aria-label="กลับหน้าวันนี้">
-        <span><Store size={19} strokeWidth={2.2} /></span><span className="brand-copy"><strong>pinto</strong><small>Commerce Center</small></span>
+        {/* Both marks ship; CSS picks one. The collapsed sidebar is 82px wide, too narrow
+            for the wordmark to stay legible, so it falls back to the mark alone. */}
+        <PintoLogo height={30} className="brand-lockup" />
+        <PintoLogo markOnly width={34} height={34} className="brand-mark-only" />
+        <small className="brand-sub">Commerce Center</small>
       </button>
       <small className="nav-label">เมนูหลัก</small>
       <nav aria-label="เมนูหลัก">

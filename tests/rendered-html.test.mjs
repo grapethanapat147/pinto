@@ -90,9 +90,51 @@ test("emits site-specific social metadata", async () => {
 
   assert.match(html, /name="description" content="ศูนย์รวมออเดอร์[^"]*"/i);
   assert.match(html, /property="og:title" content="Pinto — Seller Operations Center"/i);
-  assert.match(html, /property="og:image" content="http:\/\/localhost\/og-v2\.png"/i);
+  assert.match(html, /property="og:image" content="http:\/\/localhost\/pinto\/og-image\.png"/i);
+
+  // PIN-0017: the template's blue favicon must not come back
+  assert.match(html, /href="\/pinto\/favicon\.svg"/i, "Pinto's own favicon");
+  assert.doesNotMatch(html, /href="\/favicon\.svg"/i, "the template icon is gone");
   assert.match(html, /name="twitter:card" content="summary_large_image"/i);
-  assert.match(html, /name="twitter:image" content="http:\/\/localhost\/og-v2\.png"/i);
+  assert.match(html, /name="twitter:image" content="http:\/\/localhost\/pinto\/og-image\.png"/i);
+});
+
+/**
+ * PIN-0017 replaced the sidebar's text wordmark with SVG artwork, and both regressions this
+ * guards were found by measuring the live page, not by reading the diff.
+ */
+test("the sidebar brand survives both CSS traps it fell into", async () => {
+  const response = await render();
+  const html = await response.text();
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  // Both marks ship; CSS picks one, because the 82px collapsed sidebar shrinks the
+  // lockup to an illegible 14px-tall smear.
+  assert.match(html, /class="brand-lockup"[^>]*\/?>|logo-lockup\.svg/i);
+  assert.match(html, /logo-mark\.svg/i, "the collapsed-sidebar fallback mark");
+  assert.match(html, /class="brand-mark-only"|brand-mark-only/i);
+
+  // Trap 1 — `.brand` is a flex item in the sidebar's column, and a button's automatic
+  // minimum size does not hold it at content height. Without this it was squashed
+  // 53px -> 36px and "Commerce Center" painted over "เมนูหลัก".
+  assert.match(css, /\.brand \{[^}]*flex: 0 0 auto/, ".brand must not be allowed to shrink");
+
+  // Trap 2 — media queries add no specificity, so the base rule that hides the fallback
+  // mark has to come BEFORE the <=980px rule that reveals it. Reversed, the mark is
+  // hidden at every width and the collapsed sidebar shows no brand at all.
+  const hidden = css.indexOf(".brand .brand-mark-only { display: none");
+  const shown = css.indexOf(".brand .brand-mark-only { display: block");
+  assert.ok(hidden !== -1 && shown !== -1, "both halves of the mark toggle must exist");
+  assert.ok(hidden < shown, "the base `display: none` must precede the <=980px reveal");
+
+  // `.brand img` (0,1,1) outranks a bare `.brand-lockup` (0,1,0), so an unscoped toggle
+  // loses and both marks render at once. Every occurrence must keep the `.brand ` prefix.
+  assert.doesNotMatch(css, /(?<!\.brand )\.brand-lockup/, "toggle must stay scoped to .brand");
+  assert.doesNotMatch(css, /(?<!\.brand )\.brand-mark-only/, "toggle must stay scoped to .brand");
+
+  // The text lockup these replaced is gone, along with its rules.
+  assert.doesNotMatch(css, /\.brand-copy/, "dead selector from the text wordmark");
+  assert.doesNotMatch(css, /\.brand strong/, "dead selector from the text wordmark");
 });
 
 test("no longer serves the vinext starter skeleton", async () => {

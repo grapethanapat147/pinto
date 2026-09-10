@@ -1,4 +1,6 @@
-import { Store, TriangleAlert } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
+
+import { PintoLogo } from "./PintoBrand";
 
 /**
  * Shown when the dashboard cannot read its data.
@@ -11,7 +13,7 @@ export function DataUnavailable({ detail }: { detail?: string }) {
   return (
     <main className="data-unavailable">
       <div className="panel">
-        <span className="brand-mark"><Store size={19} strokeWidth={2.2} /></span>
+        <PintoLogo markOnly width={38} height={38} className="brand-mark" />
         <span className="unavailable-icon"><TriangleAlert size={22} strokeWidth={1.9} /></span>
         <h1>ยังไม่สามารถโหลดข้อมูลร้านได้</h1>
         <p>

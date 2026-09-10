@@ -26,9 +26,14 @@ button:focus-visible, input:focus-visible { outline: 3px solid rgba(20, 115, 86,
 
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
 .sidebar { position: fixed; inset: 0 auto 0 0; z-index: 30; width: 240px; padding: 27px 18px 20px; display: flex; flex-direction: column; background: var(--white); border-right: 1px solid var(--line); }
-.brand { width: fit-content; display: flex; align-items: center; gap: 10px; padding: 0 9px 30px; border: 0; background: transparent; font-size: 22px; letter-spacing: -.6px; }
-.brand > span:first-child { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: var(--green); color: white; font-weight: 850; box-shadow: 0 5px 12px rgba(20,115,86,.2); }
-.brand strong { font-weight: 760; }
+.brand { width: fit-content; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 0 9px 30px; border: 0; background: transparent; }
+.brand img { display: block; }
+/* Collapsed sidebar (<=980px) is 82px wide: the lockup shrinks to a 14px-tall illegible
+   smear and the sub-label wraps to two lines, so both are swapped for the mark alone.
+   Declared here, before that media query, because media queries add no specificity —
+   a later unconditional `display: none` would win everywhere and blank the mark. */
+.brand .brand-mark-only { display: none; }
+.brand-sub { color: var(--soft); font-size: 8px; letter-spacing: .02em; padding-left: 1px; }
 .sidebar nav { display: grid; gap: 5px; }
 .nav-item, .support-button { width: 100%; min-height: 47px; display: flex; align-items: center; gap: 13px; padding: 0 13px; border: 0; border-radius: 12px; background: transparent; color: #69776f; text-align: left; font-size: 13px; font-weight: 580; transition: background .18s ease, color .18s ease, transform .18s ease; }
 .nav-item:hover, .support-button:hover { background: #f4f7f5; color: var(--ink); transform: translateX(1px); }
@@ -203,7 +208,7 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 .toast.demo { background: #3b3531; }.toast.demo span { background: #e8d9cc; color: #7a5c41; }
 .data-unavailable { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--canvas); }
 .data-unavailable .panel { max-width: 430px; padding: 30px 28px; text-align: center; }
-.data-unavailable .brand-mark { width: 38px; height: 38px; margin: 0 auto 18px; display: grid; place-items: center; border-radius: 11px; background: var(--accent, #C85410); color: white; }
+.data-unavailable .brand-mark { display: block; margin: 0 auto 18px; }
 .data-unavailable .unavailable-icon { width: 44px; height: 44px; margin: 0 auto 14px; display: grid; place-items: center; border-radius: 50%; background: var(--amber-soft, #fff1db); color: var(--amber, #9a6723); }
 .data-unavailable h1 { margin: 0 0 10px; font-size: 16px; line-height: 1.45; }
 .data-unavailable p { margin: 0 0 8px; color: var(--muted); font-size: 11px; line-height: 1.7; }
@@ -211,8 +216,9 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 .data-unavailable code { display: block; margin-top: 14px; padding: 9px 11px; border-radius: 8px; background: #f4efeb; color: var(--soft); font-size: 9px; word-break: break-word; }
 .login-shell { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--canvas); }
 .login-card { width: 100%; max-width: 360px; padding: 32px 28px; text-align: center; }
-.login-card .brand-mark { width: 40px; height: 40px; margin: 0 auto 14px; display: grid; place-items: center; border-radius: 12px; background: #c85410; color: white; }
-.login-card h1 { margin: 0 0 6px; font-size: 21px; letter-spacing: -.4px; }
+.login-mascot { display: block; margin: 0 auto 6px; max-width: 100%; height: auto; }
+.login-card h1 { display: flex; justify-content: center; margin: 0 0 6px; }
+.login-card h1 img { display: block; }
 .login-tagline { margin: 0 0 24px; color: var(--muted); font-size: 10px; line-height: 1.7; }
 .login-line { width: 100%; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: #f4f2f0; color: var(--soft); font-size: 11px; font-weight: 640; cursor: not-allowed; }
 .login-line-note { display: block; margin-top: 7px; color: var(--soft); font-size: 8px; }
@@ -231,7 +237,7 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 @media (max-width: 980px) {
   .app-shell { grid-template-columns: 76px minmax(0, 1fr); }
   .sidebar { width: 76px; padding: 24px 10px 18px; }
-  .brand { width: 100%; justify-content: center; padding: 0 0 28px; }.brand strong { display: none; }
+  .brand { width: 100%; align-items: center; padding: 0 0 28px; }
   .nav-item, .support-button { justify-content: center; padding: 0; }.nav-item em, .support-button em { display: none; }.nav-item b { position: absolute; margin: -27px 0 0 28px; }
   .store-card { justify-content: center; padding: 14px 0 0; }.store-card > div:nth-child(2), .store-card > button { display: none; }
   .content { padding-inline: 28px; }
@@ -277,7 +283,7 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 }
 
 .sidebar { box-shadow: 10px 0 35px rgba(77, 53, 40, .025); }
-.brand > span:first-child { background: #c85410; box-shadow: 0 5px 12px rgba(200, 84, 16, .2); }
+
 .nav-item.active { background: #f8f1ec; color: #b94b0d; }
 .nav-item.active > span { color: #b94b0d; }
 .content { max-width: 1260px; }
@@ -298,9 +304,6 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 .app-shell { grid-template-columns: 220px minmax(0, 1fr); }
 .sidebar { width: 220px; padding: 24px 16px 17px; }
 .brand { gap: 9px; padding: 0 8px 25px; }
-.brand-copy { display: grid; text-align: left; line-height: 1.05; }
-.brand-copy strong { font-size: 18px; letter-spacing: -.55px; }
-.brand-copy small { margin-top: 4px; color: #9a918b; font-size: 7px; font-weight: 520; letter-spacing: .1px; }
 .nav-label { display: block; padding: 0 11px 8px; color: #aaa19b; font-size: 7px; font-weight: 680; letter-spacing: .75px; text-transform: uppercase; }
 .nav-label.secondary-label { padding-top: 22px; }
 .nav-item { min-height: 46px; border-radius: 10px; font-size: 13px; }
@@ -341,7 +344,7 @@ button.campaign-row:hover { background: #fafcfb; }.campaign-row.campaign-head { 
 }
 
 @media (max-width: 980px) {
-  .app-shell { grid-template-columns: 76px minmax(0, 1fr); }.sidebar { width: 76px; padding-inline: 10px; }.brand-copy, .nav-label, .upgrade-card { display: none; }.page-body { padding-inline: 22px; }.topbar { padding-inline: 24px; }
+  .app-shell { grid-template-columns: 76px minmax(0, 1fr); }.sidebar { width: 76px; padding-inline: 10px; }.brand .brand-lockup, .brand-sub, .nav-label, .upgrade-card { display: none; }.brand .brand-mark-only { display: block; }.page-body { padding-inline: 22px; }.topbar { padding-inline: 24px; }
 }
 
 @media (max-width: 760px) {
@@ -362,9 +365,7 @@ button { min-height: 36px; }
 .app-shell { grid-template-columns: 236px minmax(0, 1fr); }
 .sidebar { width: 236px; padding: 25px 17px 18px; }
 .brand { gap: 11px; padding: 0 8px 27px; }
-.brand > span:first-child { width: 40px; height: 40px; border-radius: 12px; }
-.brand-copy strong { font-size: 20px; letter-spacing: -.45px; }
-.brand-copy small { margin-top: 5px; font-size: 10px; line-height: 1.25; }
+
 .nav-label { padding: 0 12px 8px; font-size: 10px; letter-spacing: .7px; }
 .nav-label.secondary-label { padding-top: 20px; }
 .nav-item, .support-button { min-height: 48px; gap: 12px; padding-inline: 13px; font-size: 14px; font-weight: 560; }
@@ -560,15 +561,13 @@ button { min-height: 36px; }
 }
 
 /* Final alignment and responsive QA fixes */
-.brand-copy {
-  width: auto;
-  height: auto;
-  place-items: initial;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink);
-  box-shadow: none;
-}
+/*
+ * `.brand` is a flex item in the sidebar's column. A button's automatic minimum size does
+ * not hold it at its content height, so once the sidebar's content exceeded the viewport
+ * the brand was squashed 53px -> 36px and "Commerce Center" was painted over "เมนูหลัก".
+ * `flex: 0 0 auto` keeps it at content height; `.sidebar` already scrolls (overflow-y: auto).
+ */
+.brand { flex: 0 0 auto; gap: 3px; padding: 0 8px 26px; }
 .home-mark { width: 20px; height: 20px; flex: 0 0 auto; }
 .primary-button,
 .secondary-button,

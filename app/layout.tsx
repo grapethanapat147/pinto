@@ -26,13 +26,22 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: "Pinto — Seller Operations Center",
       description: "จัดการออเดอร์ สต๊อก ลูกค้า การตลาด และกำไรได้จากที่เดียว",
-      images: [`${origin}/og-v2.png`],
+      images: [`${origin}/pinto/og-image.png`],
     },
     twitter: {
       card: "summary_large_image",
       title: "Pinto — Seller Operations Center",
       description: "จัดการออเดอร์ สต๊อก ลูกค้า การตลาด และกำไรได้จากที่เดียว",
-      images: [`${origin}/og-v2.png`],
+      images: [`${origin}/pinto/og-image.png`],
+    },
+    // The template shipped a blue icon unrelated to Pinto. SVG first for sharp scaling,
+    // ICO for the browsers and OS surfaces that still want one.
+    icons: {
+      icon: [
+        { url: "/pinto/favicon.svg", type: "image/svg+xml" },
+        { url: "/pinto/favicon.ico", sizes: "any" },
+      ],
+      apple: [{ url: "/pinto/line-channel-icon.png" }],
     },
   };
 }
