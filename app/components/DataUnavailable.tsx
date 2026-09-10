@@ -13,7 +13,7 @@ export function DataUnavailable({ detail }: { detail?: string }) {
   return (
     <main className="data-unavailable">
       <div className="panel">
-        <PintoLogo markOnly width={38} height={38} className="brand-mark" />
+        <PintoLogo markOnly width={38} className="brand-mark" />
         <span className="unavailable-icon"><TriangleAlert size={22} strokeWidth={1.9} /></span>
         <h1>ยังไม่สามารถโหลดข้อมูลร้านได้</h1>
         <p>

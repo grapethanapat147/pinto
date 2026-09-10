@@ -18,11 +18,22 @@
  */
 /* eslint-disable @next/next/no-img-element */
 
+/*
+ * Sizes are the handoff's recommended display sizes, not the raw `viewBox` — `fit()` only
+ * needs the ratio, and these double as the default when the caller gives neither dimension.
+ * Ratios match the artwork exactly: full 550x465, bust 440x440, head 240x240.
+ */
 const MASCOT = {
-  full: { file: "mascot-full.svg", width: 360, height: 294 },
+  full: { file: "mascot-full.svg", width: 330, height: 279 },
   bust: { file: "mascot-bust.svg", width: 240, height: 240 },
   head: { file: "mascot-head.svg", width: 40, height: 40 },
 } as const;
+
+/** viewBox 270x78. The wordmark is drawn as paths, so it carries no font dependency. */
+const LOCKUP = { w: 270, h: 78 };
+/** viewBox 240x240. `logo-mark.svg` and `mascot-head.svg` are the same artwork, shipped
+ *  under both names because the handoff gives them different roles. */
+const MARK = { w: 40, h: 40 };
 
 export type MascotVariant = keyof typeof MASCOT;
 
@@ -86,7 +97,7 @@ export function PintoLogo({
   className?: string;
 }) {
   const file = markOnly ? "logo-mark.svg" : "logo-lockup.svg";
-  const box = fit(markOnly ? { w: 40, h: 40 } : { w: 199, h: 68 }, width, height);
+  const box = fit(markOnly ? MARK : LOCKUP, width, height);
   return (
     <img
       src={`/pinto/${file}`}

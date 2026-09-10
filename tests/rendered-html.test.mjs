@@ -137,6 +137,55 @@ test("the sidebar brand survives both CSS traps it fell into", async () => {
   assert.doesNotMatch(css, /\.brand strong/, "dead selector from the text wordmark");
 });
 
+/**
+ * The brand artwork has now been replaced once (a second delivery redrew every mark and
+ * changed the lockup from 199x68 to 270x78). Both times the risk was the same: `PintoBrand`
+ * carries the proportions in TypeScript, and nothing tied them to the files on disk. When
+ * they drifted, `height={30}` emitted the stale `width="199"` and rendered the lockup
+ * stretched. This checks the app's own output against each artwork's `viewBox`.
+ */
+test("every brand image is emitted at the artwork's own aspect ratio", async () => {
+  const pages = [
+    ["/", sessionCookie],
+    ["/login", "pinto_session=none"],
+  ];
+
+  const seen = new Set();
+  for (const [pathname, cookie] of pages) {
+    const html = await (await render(pathname, { cookie })).text();
+
+    for (const tag of html.match(/<img[^>]+src="\/pinto\/[^"]+"[^>]*>/g) ?? []) {
+      const file = tag.match(/src="\/pinto\/([^"]+)"/)[1];
+      if (!file.endsWith(".svg")) continue;
+
+      const width = Number(tag.match(/width="(\d+)"/)?.[1]);
+      const height = Number(tag.match(/height="(\d+)"/)?.[1]);
+      assert.ok(
+        Number.isFinite(width) && Number.isFinite(height),
+        `${file} must carry both width and height so the browser reserves the right box`,
+      );
+
+      const svg = await readFile(new URL(`../public/pinto/${file}`, import.meta.url), "utf8");
+      const viewBox = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+      assert.ok(viewBox, `${file} must declare a viewBox`);
+
+      const artwork = Number(viewBox[1]) / Number(viewBox[2]);
+      const emitted = width / height;
+      assert.ok(
+        Math.abs(emitted - artwork) / artwork < 0.01,
+        `${file} is emitted ${width}x${height} (${emitted.toFixed(3)}) but the artwork is ` +
+          `${viewBox[1]}x${viewBox[2]} (${artwork.toFixed(3)}) — it would render distorted`,
+      );
+      seen.add(file);
+    }
+  }
+
+  // Guards the loop itself: if the markup stops matching, the assertions above never run.
+  assert.ok(seen.has("logo-lockup.svg"), "the sidebar and login lockup");
+  assert.ok(seen.has("logo-mark.svg"), "the collapsed-sidebar mark");
+  assert.ok([...seen].some((f) => f.startsWith("mascot-")), "the login mascot");
+});
+
 test("no longer serves the vinext starter skeleton", async () => {
   const response = await render();
   const html = await response.text();

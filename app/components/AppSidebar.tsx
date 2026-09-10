@@ -13,7 +13,7 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, canS
         {/* Both marks ship; CSS picks one. The collapsed sidebar is 82px wide, too narrow
             for the wordmark to stay legible, so it falls back to the mark alone. */}
         <PintoLogo height={30} className="brand-lockup" />
-        <PintoLogo markOnly width={34} height={34} className="brand-mark-only" />
+        <PintoLogo markOnly width={34} className="brand-mark-only" />
         <small className="brand-sub">Commerce Center</small>
       </button>
       <small className="nav-label">เมนูหลัก</small>
