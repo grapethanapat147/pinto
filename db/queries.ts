@@ -11,7 +11,7 @@ import {
   actions, campaigns, channelMetrics, channels, conversations, customerSegments,
   inventoryChannelSync,
   dashboardMetrics, inventoryLevels, messages, orders, payouts, productOpportunities,
-  products, recommendations, regions, restockSuggestions, waterfallSteps,
+  products, recommendations, regions, restockSuggestions, shops, waterfallSteps,
 } from "./schema";
 import {
   formatBaht, formatCompactBaht, formatMessageStamp, formatPercent, formatRoas,
@@ -40,6 +40,23 @@ function stockStatus(onHand: number, daysLeft: number | null): InventoryItem["st
   if (onHand === 0) return "หมดสต๊อก";
   if (daysLeft !== null && daysLeft <= 7) return "ใกล้หมด";
   return "พร้อมขาย";
+}
+
+/**
+ * The signed-in shop's own name (PIN-0014 follow-up).
+ *
+ * The sidebar used to print "ร้าน Mali Living" as a literal, so every shop was that shop.
+ * Falsy is impossible — `shops.name` is `notNull` and the session's `shopId` is a foreign
+ * key — but a missing row would mean the session outlived its shop, which is worth saying
+ * rather than rendering "ร้าน undefined".
+ */
+export async function shopName(session: SessionUser): Promise<string> {
+  const [row] = await getDb()
+    .select({ name: shops.name })
+    .from(shops)
+    .where(eq(shops.id, session.shopId));
+
+  return row?.name ?? "ร้านของคุณ";
 }
 
 export async function listOrders(session: SessionUser): Promise<Order[]> {

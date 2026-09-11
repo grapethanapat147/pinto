@@ -6,7 +6,29 @@ import { PintoLogo } from "./PintoBrand";
 import { navItems } from "../fixtures/navigation";
 import type { Notify, View } from "../types";
 
-export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, canSeeFinance, onChangeView, onToggleMobileMenu, notify }: { view: View; activeCount: number; mobileMenuOpen: boolean; signedInAs: string; canSeeFinance: boolean; onChangeView: (view: View) => void; onToggleMobileMenu: () => void; notify: Notify }) {
+/**
+ * Up to two initials for the avatar, replacing the hard-coded "ML".
+ *
+ * Split by grapheme, not by code unit: a Thai name's first "letter" is often a cluster of
+ * several code points, and slicing through one renders a broken glyph. A single-word name
+ * therefore gets one initial rather than a mangled two.
+ */
+function initials(name: string): string {
+  // "ร้าน" is the Thai word for shop, not part of the name — the seeded shop is
+  // "ร้าน Mali Living", and taking it literally produced the avatar "ร้M".
+  const words = name.trim().replace(/^ร้าน\s*/, "").split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+
+  const firstGrapheme = (word: string) => {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    return [...segmenter.segment(word)][0]?.segment ?? word.slice(0, 1);
+  };
+
+  if (words.length === 1) return firstGrapheme(words[0]).toUpperCase();
+  return (firstGrapheme(words[0]) + firstGrapheme(words[1])).toUpperCase();
+}
+
+export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, shopName, canSeeFinance, onChangeView, onToggleMobileMenu, notify }: { view: View; activeCount: number; mobileMenuOpen: boolean; signedInAs: string; shopName: string; canSeeFinance: boolean; onChangeView: (view: View) => void; onToggleMobileMenu: () => void; notify: Notify }) {
   return (
     <aside className="sidebar">
       <button className="brand" onClick={() => onChangeView("today")} aria-label="กลับหน้าวันนี้">
@@ -55,8 +77,8 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, canS
       <div className="sidebar-lower">
         <div className="upgrade-card"><span><Sparkles size={16} strokeWidth={1.9} /></span><strong>ปลดล็อกข้อมูลเชิงลึก</strong><small>เชื่อมต้นทุนให้ครบ เพื่อเห็นกำไรที่แม่นยำขึ้น</small><button onClick={() => notify("ตัวอย่าง — หน้าตั้งค่าการเชื่อมต่อช่องทางยังไม่เปิดใช้งาน", "demo")}>จัดการการเชื่อมต่อ</button></div>
         <div className="store-card">
-          <div className="store-avatar">ML</div>
-          <div><strong>ร้าน Mali Living</strong><small>{signedInAs}</small></div>
+          <div className="store-avatar" aria-hidden="true">{initials(shopName)}</div>
+          <div><strong>{shopName}</strong><small>{signedInAs}</small></div>
           <form method="post" action="/api/auth/logout">
             <button type="submit" aria-label="ออกจากระบบ" title="ออกจากระบบ"><LogOut size={17} /></button>
           </form>

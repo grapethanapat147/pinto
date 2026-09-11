@@ -33,6 +33,7 @@ export function AppShell({
   metrics,
   recommendations,
   signedInAs,
+  shopName,
   role,
   channelSync,
 }: {
@@ -46,6 +47,7 @@ export function AppShell({
   metrics: DashboardMetrics;
   recommendations: Record<string, RecommendationPanel>;
   signedInAs: string;
+  shopName: string;
   role: "owner" | "staff";
   channelSync: ChannelSyncRow[];
 }) {
@@ -111,6 +113,7 @@ export function AppShell({
         activeCount={activeActions.length}
         mobileMenuOpen={mobileMenuOpen}
         signedInAs={signedInAs}
+        shopName={shopName}
         canSeeFinance={canSeeFinance}
         onChangeView={changeView}
         onToggleMobileMenu={() => setMobileMenuOpen((current) => !current)}
@@ -128,7 +131,7 @@ export function AppShell({
         />
 
         <div className="page-body">
-          {view === "today" && <TodayView period={period} actions={activeActions.slice(0, 3)} metrics={metrics} payouts={payouts} canSeeFinance={canSeeFinance} onOpenAction={setSelectedAction} onViewActions={() => changeView("actions")} onNavigate={changeView} notify={notify} />}
+          {view === "today" && <TodayView period={period} signedInAs={signedInAs} actions={activeActions.slice(0, 3)} metrics={metrics} payouts={payouts} canSeeFinance={canSeeFinance} onOpenAction={setSelectedAction} onViewActions={() => changeView("actions")} onNavigate={changeView} notify={notify} />}
           {view === "actions" && (
             <ActionsView
               actions={visibleActions}

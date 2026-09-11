@@ -198,6 +198,56 @@ test("no longer serves the vinext starter skeleton", async () => {
   assert.doesNotMatch(html, /Starter Project/i);
 });
 
+/**
+ * The welcome headline, the shop name and the avatar were all literals: "ยินดีต้อนรับกลับ
+ * คุณมะลิ!", "ร้าน Mali Living", "ML". Every visitor was greeted as the demo owner. It only
+ * became visible once เกรพ signed in with LINE and the page still called him คุณมะลิ.
+ */
+test("greets whoever is signed in, and names their own shop", async () => {
+  // React marks the boundary between literal text and an interpolated value with an empty
+  // HTML comment, so `ยินดีต้อนรับกลับ {name}!` serialises with `<!-- -->` either side of the
+  // name. Strip them before matching, or the assertion tests React's serialiser rather than
+  // the page.
+  const text = (html) => html.replace(/<!--.*?-->/g, "");
+
+  const ownerHtml = text(await (await render()).text());
+
+  // The seeded demo owner is คุณมะลิ of Mali Living, so the strings are right for *this*
+  // session — what matters is where they come from.
+  assert.match(ownerHtml, /ยินดีต้อนรับกลับ คุณมะลิ!/);
+
+  const staffCookie = await signIn("staff");
+  const staffHtml = text(await (await render("/", { cookie: staffCookie })).text());
+
+  assert.match(staffHtml, /ยินดีต้อนรับกลับ คุณฟ้า/, "a different user must get their own name");
+  assert.doesNotMatch(staffHtml, /ยินดีต้อนรับกลับ คุณมะลิ/, "the demo owner's name must not be baked in");
+
+  // The shop's own name, asserted against the rendered store card rather than anywhere in
+  // the document — the serialised RSC props carry the name too, so a document-wide match
+  // passes even when the visible markup is a literal.
+  const shop = await globalThis.__PINTO_TEST_ENV__.DB.prepare("SELECT name FROM shops WHERE id = 1").bind().first();
+  const storeCard = ownerHtml.match(/<div class="store-card">[\s\S]{0,400}?<\/div>\s*<form/);
+  assert.ok(storeCard, "the sidebar store card should be rendered");
+  assert.ok(
+    storeCard[0].includes(`<strong>${shop.name}</strong>`),
+    `the store card must print the shop row's name, got: ${storeCard[0].slice(0, 200)}`,
+  );
+  assert.ok(storeCard[0].includes(">ML<"), "the avatar drops the ร้าน prefix before taking initials");
+
+  // Matching the seeded name proves nothing on its own — a literal "ร้าน Mali Living" / "ML"
+  // in the markup would satisfy it. Rename the shop and the card has to follow.
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+  await db.prepare("UPDATE shops SET name = 'ร้าน Pinto Test' WHERE id = 1").bind().run();
+  try {
+    const renamed = text(await (await render()).text());
+    const card = renamed.match(/<div class="store-card">[\s\S]{0,400}?<\/div>\s*<form/);
+    assert.ok(card[0].includes("<strong>ร้าน Pinto Test</strong>"), "the name must follow the row");
+    assert.ok(card[0].includes(">PT<"), "the initials must be derived, not written into the markup");
+  } finally {
+    await db.prepare("UPDATE shops SET name = ? WHERE id = 1").bind(shop.name).run();
+  }
+});
+
 test("keeps View, navItems and viewTitles synchronized", async () => {
   const [types, navigation] = await Promise.all([
     readFile(new URL("../app/types.ts", import.meta.url), "utf8"),

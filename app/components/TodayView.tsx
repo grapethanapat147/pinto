@@ -21,7 +21,7 @@ import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
 import type { DashboardMetrics, Notify, Payout, ShopAction, View } from "../types";
 
-export function TodayView({ period, actions, metrics, payouts, canSeeFinance, onOpenAction, onViewActions, onNavigate, notify }: { period: string; actions: ShopAction[]; metrics: DashboardMetrics; payouts: Payout[]; canSeeFinance: boolean; onOpenAction: (action: ShopAction) => void; onViewActions: () => void; onNavigate: (view: View) => void; notify: Notify }) {
+export function TodayView({ period, signedInAs, actions, metrics, payouts, canSeeFinance, onOpenAction, onViewActions, onNavigate, notify }: { period: string; signedInAs: string; actions: ShopAction[]; metrics: DashboardMetrics; payouts: Payout[]; canSeeFinance: boolean; onOpenAction: (action: ShopAction) => void; onViewActions: () => void; onNavigate: (view: View) => void; notify: Notify }) {
   const data = metrics.periods[period] ?? { profit: "", sales: "", ads: "", orders: "", change: "" };
   const tile = (key: string) => metrics.tiles.today?.find((item) => item.key === key);
   const bars = [42, 76, 58, 88, 64, 82];
@@ -33,7 +33,7 @@ export function TodayView({ period, actions, metrics, payouts, canSeeFinance, on
   return (
     <>
       <section className="welcome-row">
-        <div><h2>ยินดีต้อนรับกลับ คุณมะลิ!</h2><p>ดูสุขภาพร้านและจัดการเรื่องสำคัญได้จากที่เดียว</p></div>
+        <div><h2>ยินดีต้อนรับกลับ {signedInAs}!</h2><p>ดูสุขภาพร้านและจัดการเรื่องสำคัญได้จากที่เดียว</p></div>
         <button className="primary-button add-cost-button icon-text-button" onClick={() => notify("ตัวอย่าง — หน้าจัดการต้นทุนสินค้ายังไม่เปิดใช้งาน", "demo")}><Plus size={17} />เพิ่มข้อมูลต้นทุน</button>
       </section>
 

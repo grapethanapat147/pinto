@@ -14,6 +14,7 @@ import {
   listPayouts,
   listRecommendations,
   openActionImpactTotal,
+  shopName,
 } from "../db/queries";
 
 type DashboardData = Awaited<ReturnType<typeof loadDashboard>>;
@@ -35,8 +36,9 @@ async function loadDashboard() {
     // component, and anything sent to it is readable however the nav is drawn.
     const canSeeFinance = session.role === "owner";
 
-    const [orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations, channelSync] =
+    const [shop, orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations, channelSync] =
       await Promise.all([
+        shopName(session),
         listOrders(session),
         listInventory(session),
         listActions(session),
@@ -57,6 +59,7 @@ async function loadDashboard() {
     return {
       state: "ok" as const,
       signedInAs: session.displayName,
+      shopName: shop,
       role: session.role,
       orders,
       inventory,
@@ -101,6 +104,7 @@ export default async function Page() {
       metrics={data.metrics}
       recommendations={data.recommendations}
       signedInAs={data.signedInAs}
+      shopName={data.shopName}
       role={data.role}
       channelSync={data.channelSync}
     />
