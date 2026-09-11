@@ -6,7 +6,8 @@
  * is the deliberate bootstrap: it needs filesystem access to the project, which is the
  * whole point of not doing it over HTTP.
  *
- * Usage: node scripts/grant-line-access.mjs <lineUserId> [owner|staff] [shopId]
+ * Usage: npm run auth:grant-line            (prompts for the id)
+ *        npm run auth:grant-line -- Uxxx owner
  *
  * The LINE user id is shown to the caller on the refusal page after a successful LINE
  * sign-in. It is an identifier, not a secret, and nothing secret is written here.
@@ -15,6 +16,8 @@ import { execFileSync } from "node:child_process";
 import { readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { prompt } from "./prompt.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const D1_DIR = join(root, ".wrangler/state/v3/d1/miniflare-D1DatabaseObject");
@@ -38,13 +41,17 @@ function localDatabase() {
 const query = (db, sql) =>
   execFileSync("sqlite3", [db, sql], { encoding: "utf8" }).trim();
 
-const [lineUserId, role = "owner", shopArg] = process.argv.slice(2);
+const [argId, role = "owner", shopArg] = process.argv.slice(2);
+
+// Asking beats a documented placeholder. `npm run auth:grant-line -- <id>` sent a real
+// person's shell a redirection error, because `<` is redirection — so there is no
+// placeholder to fumble any more.
+const lineUserId =
+  argId ??
+  (await prompt("LINE user id (shown on the refusal page after signing in with LINE): "));
 
 if (!lineUserId) {
-  console.error(
-    "Usage: node scripts/grant-line-access.mjs <lineUserId> [owner|staff] [shopId]\n" +
-      "The LINE user id is shown on the refusal page after signing in with LINE."
-  );
+  console.error("No LINE user id given. Sign in with LINE once; the refusal page shows it.");
   process.exit(1);
 }
 if (role !== "owner" && role !== "staff") {
