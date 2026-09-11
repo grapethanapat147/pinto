@@ -18,3 +18,4 @@
 | PIN-0015 | Channel identity, health, and a demo adapter | 3 |
 | PIN-0016 | Normalise per-channel stock sync | 3 |
 | PIN-0017 | Install the brand assets | 5 |
+| PIN-0019 | The dashboard scrolls sideways on a phone | 5 |
