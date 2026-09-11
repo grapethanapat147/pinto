@@ -1,4 +1,4 @@
-import { createSession, findUserByProvider } from "../../../../../db/auth";
+import { createSession, findUserByProvider, refreshProfile } from "../../../../../db/auth";
 import { sessionCookie } from "../../cookie";
 import { exchangeCode, lineConfig } from "../provider";
 import { NONCE_COOKIE, STATE_COOKIE, clearedCookies, readCookie, timingSafeEqual } from "../state";
@@ -112,6 +112,11 @@ export async function GET(request: Request) {
     );
   }
 
-  const { token, expiresAt } = await createSession(user);
+  // LINE has just vouched for this name and picture, so they are the truth. The row may
+  // still be carrying the placeholder `grant-line-access.mjs` wrote before this person had
+  // ever signed in.
+  const signedIn = await refreshProfile(user, identity);
+
+  const { token, expiresAt } = await createSession(signedIn);
   return respond(303, { location: "/", "set-cookie": sessionCookie(token, expiresAt) });
 }

@@ -63,6 +63,32 @@ export async function findUserByProvider(
   };
 }
 
+/**
+ * Writes back the display name and picture the provider just vouched for (PIN-0014).
+ *
+ * A user row is created before its owner has ever signed in — `scripts/grant-line-access.mjs`
+ * has only the LINE user id to go on, so it writes a placeholder name. Refreshing here is
+ * what makes that placeholder temporary, and it keeps a later rename on LINE from leaving a
+ * stale name in Pinto.
+ *
+ * The write is skipped when nothing changed, so a normal sign-in stays a read.
+ */
+export async function refreshProfile(
+  user: SessionUser,
+  profile: { displayName: string; pictureUrl: string | null }
+): Promise<SessionUser> {
+  if (user.displayName === profile.displayName && user.pictureUrl === profile.pictureUrl) {
+    return user;
+  }
+
+  await getDb()
+    .update(users)
+    .set({ displayName: profile.displayName, pictureUrl: profile.pictureUrl })
+    .where(eq(users.id, user.userId));
+
+  return { ...user, displayName: profile.displayName, pictureUrl: profile.pictureUrl };
+}
+
 /** Returns the raw token for the cookie; only its digest reaches the database. */
 export async function createSession(user: SessionUser): Promise<{ token: string; expiresAt: string }> {
   const token = createSessionToken();

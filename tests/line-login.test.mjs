@@ -151,6 +151,71 @@ test("a LINE account with no user row is refused, and no session is created", as
   }
 });
 
+
+test("signing in replaces the placeholder name the grant script wrote", async () => {
+  // `grant-line-access.mjs` has only a LINE user id to go on, so it writes a placeholder.
+  // Until PIN-0014's follow-up this was never replaced, and the script said it would be.
+  const lineId = "Ucccc1111dddd2222eeee3333ffff4444";
+  await db
+    .prepare(
+      "INSERT INTO users (shop_id, provider, provider_user_id, display_name, picture_url, role, created_at)" +
+        " VALUES (1, 'line', ?, 'ผู้ใช้ LINE', NULL, 'owner', '2026-09-11T00:00:00.000Z')",
+    )
+    .bind(lineId)
+    .run();
+
+  const restore = stubLine({
+    "oauth2/v2.1/token": async () => Response.json({ id_token: "fake.id.token" }),
+    "oauth2/v2.1/verify": async () =>
+      Response.json({ sub: lineId, name: "เกรพ ธนพัฒน์", picture: "https://profile.line-scdn.net/x" }),
+  });
+  try {
+    const response = await fetchWorker("/api/auth/line/callback?code=abc&state=s", {
+      headers: { cookie: "pinto_line_state=s; pinto_line_nonce=n" },
+    });
+    assert.equal(response.status, 303);
+
+    const row = await db
+      .prepare("SELECT display_name AS name, picture_url AS picture FROM users WHERE provider_user_id = ?")
+      .bind(lineId)
+      .first();
+    assert.equal(row.name, "เกรพ ธนพัฒน์", "the placeholder must be replaced by LINE's own name");
+    assert.equal(row.picture, "https://profile.line-scdn.net/x");
+  } finally {
+    restore();
+  }
+});
+
+test("a later rename on LINE does not leave a stale name in Pinto", async () => {
+  const lineId = "U5555666677778888999900001111aaaa";
+  await db
+    .prepare(
+      "INSERT INTO users (shop_id, provider, provider_user_id, display_name, role, created_at)" +
+        " VALUES (1, 'line', ?, 'ชื่อเก่า', 'staff', '2026-09-11T00:00:00.000Z')",
+    )
+    .bind(lineId)
+    .run();
+
+  const restore = stubLine({
+    "oauth2/v2.1/token": async () => Response.json({ id_token: "fake.id.token" }),
+    "oauth2/v2.1/verify": async () => Response.json({ sub: lineId, name: "ชื่อใหม่" }),
+  });
+  try {
+    await fetchWorker("/api/auth/line/callback?code=abc&state=s", {
+      headers: { cookie: "pinto_line_state=s; pinto_line_nonce=n" },
+    });
+    const row = await db
+      .prepare("SELECT display_name AS name, role FROM users WHERE provider_user_id = ?")
+      .bind(lineId)
+      .first();
+    assert.equal(row.name, "ชื่อใหม่");
+    // Refreshing the profile must not touch anything Pinto owns.
+    assert.equal(row.role, "staff", "the role is Pinto's, not LINE's");
+  } finally {
+    restore();
+  }
+});
+
 test("a known LINE user is signed in with a real session", async () => {
   const lineId = "Uaaaabbbbccccddddeeeeffff00001111";
   await db
