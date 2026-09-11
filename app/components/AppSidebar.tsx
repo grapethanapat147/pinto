@@ -14,7 +14,6 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, canS
             for the wordmark to stay legible, so it falls back to the mark alone. */}
         <PintoLogo height={30} className="brand-lockup" />
         <PintoLogo markOnly width={34} className="brand-mark-only" />
-        <small className="brand-sub">Commerce Center</small>
       </button>
       <small className="nav-label">เมนูหลัก</small>
       <nav aria-label="เมนูหลัก">

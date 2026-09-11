@@ -42,7 +42,7 @@ export function TodayView({ period, actions, metrics, payouts, canSeeFinance, on
           <section className="overview-grid">
             <article className="panel sales-overview-card">
               <div className="sales-card-head">
-                <div><p>กำไร{period === "วันนี้" ? "วันนี้" : ` ${period}`}</p><h2>{data.profit} <StatusPill tone="good">↑ {data.change}</StatusPill></h2></div>
+                <div><p>กำไร{period === "วันนี้" ? "วันนี้" : ` ${period}`}</p><h2>{data.profit} <small className="delta delta-up">↑ {data.change}</small></h2></div>
                 <span>อัปเดตล่าสุด 10:42 น.</span>
               </div>
               <div className="sales-legend"><span><i className="profit-key" />กำไร</span><span><i className="cost-key" />ต้นทุนรวม</span></div>

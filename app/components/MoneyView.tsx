@@ -15,7 +15,7 @@ export function MoneyView({ payouts, metrics, notify }: { payouts: Payout[]; met
   return (
     <>
       <section className="money-hero">
-        <article><p>{profit?.label}</p><h2>{profit?.value}</h2><StatusPill tone="good">↑ 12.4%</StatusPill><small>{profit?.note}</small></article>
+        <article><p>{profit?.label}</p><h2>{profit?.value}</h2><small className="delta delta-up">↑ 12.4%</small><small>{profit?.note}</small></article>
         <article><p>{withdrawable?.label}</p><h2>{withdrawable?.value}</h2><button className="primary-button" onClick={() => notify("ตัวอย่าง — ยังไม่มีการถอนเงินจริง", "demo")}>ดูรายละเอียด</button></article>
         <article><p>{pending?.label}</p><h2>{pending?.value}</h2><div className="mini-payout">{(pending?.note ?? "").split(" · ").map((part) => <span key={part}>{part}</span>)}</div></article>
       </section>
