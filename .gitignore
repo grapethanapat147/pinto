@@ -31,6 +31,14 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Cloudflare local bindings. `.env*` does NOT match this name, and it is the file the Worker
+# runtime actually reads — `@cloudflare/vite-plugin` puts these on `env`, while `.env.local`
+# never reaches it. Verified with a probe route in PIN-0014. Secrets live here, so it must
+# be ignored; `.dev.vars.example` carries the non-secret keys for the next person.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+
 # vercel
 .vercel
 

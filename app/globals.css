@@ -677,6 +677,17 @@ button.stock-row:hover { background: #fdfaf8; }
 .secondary-button { border-color: transparent; background: transparent; color: var(--ink); }
 .secondary-button:hover { text-decoration: underline; }
 
+/* The LINE button becomes a link once the channel is configured (PIN-0014). It is the one
+   real way in, so it carries LINE's own green rather than the disabled grey. */
+.login-line-ready {
+  border-color: #06c755;
+  background: #06c755;
+  color: var(--surface);
+  cursor: pointer;
+  text-decoration: none;
+}
+.login-line-ready:hover { background: #05b34c; border-color: #05b34c; }
+
 /* ---------------------------------------------------------------------------
  * Responsive layer (PIN-0019).
  *

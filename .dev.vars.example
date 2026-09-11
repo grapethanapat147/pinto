@@ -1,0 +1,16 @@
+# Cloudflare local bindings — copy to `.dev.vars`, which is gitignored.
+#
+# THIS is the file the Worker runtime reads. `.env.local` does not reach `env` from
+# `cloudflare:workers`; that was verified with a probe route, not assumed (PIN-0014).
+#
+# After editing, restart the dev server — these are read at startup, not on HMR.
+
+# Channel ID is not a secret: it travels in the browser's authorize URL.
+LINE_CHANNEL_ID=2011434259
+
+# Channel secret IS a secret. Copy it from the LINE Developers Console, keep it in
+# `.dev.vars` only, and never paste it into a commit, a chat message or hosting.json.
+LINE_CHANNEL_SECRET=
+
+# Must match the callback registered on the channel exactly.
+LINE_CALLBACK_URL=http://localhost:5173/api/auth/line/callback

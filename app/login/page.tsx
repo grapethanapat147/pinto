@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { MessageCircle, Sparkles, UserRound } from "lucide-react";
 
+import { lineConfig } from "../api/auth/line/provider";
 import { PintoLogo, PintoMascot } from "../components/PintoBrand";
 import { getSession } from "../session";
 
@@ -13,13 +14,23 @@ async function currentSession() {
   }
 }
 
+/** A missing channel should not take the page down with it. */
+function currentLineConfig() {
+  try {
+    return lineConfig();
+  } catch {
+    return null;
+  }
+}
+
 /**
- * LINE Login is Pinto's destination (auth spec Q4), but no LINE channel is configured yet,
- * so that button is **disabled with a reason** rather than pretending — the PIN-0001 rule
- * applied to the front door.
+ * LINE Login is Pinto's destination (auth spec Q4). The button is live only when the channel
+ * is actually configured; without it the page says so instead of offering a control that
+ * fails on click — the PIN-0001 rule applied to the front door.
  */
 export default async function LoginPage() {
   if (await currentSession()) redirect("/");
+  const lineReady = currentLineConfig() !== null;
 
   return (
     <main className="login-shell">
@@ -34,10 +45,18 @@ export default async function LoginPage() {
         <h1><PintoLogo height={30} /></h1>
         <p className="login-tagline">จัดการร้านออนไลน์ครบทุกช่องทางจากที่เดียว</p>
 
-        <button className="login-line" disabled aria-disabled="true">
-          <MessageCircle size={18} strokeWidth={1.9} />เข้าสู่ระบบด้วย LINE
-        </button>
-        <small className="login-line-note">ยังไม่ได้เชื่อมต่อ LINE Login สำหรับร้านนี้</small>
+        {lineReady ? (
+          <a className="login-line login-line-ready" href="/api/auth/line/start">
+            <MessageCircle size={18} strokeWidth={1.9} />เข้าสู่ระบบด้วย LINE
+          </a>
+        ) : (
+          <>
+            <button className="login-line" disabled aria-disabled="true">
+              <MessageCircle size={18} strokeWidth={1.9} />เข้าสู่ระบบด้วย LINE
+            </button>
+            <small className="login-line-note">ยังไม่ได้เชื่อมต่อ LINE Login สำหรับร้านนี้</small>
+          </>
+        )}
 
         <div className="login-divider"><span>หรือ</span></div>
 
