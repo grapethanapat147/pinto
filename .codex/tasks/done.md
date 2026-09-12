@@ -20,3 +20,4 @@
 | PIN-0017 | Install the brand assets | 5 |
 | PIN-0019 | The dashboard scrolls sideways on a phone | 5 |
 | PIN-0018 | Design tokens and the quiet-chrome tone pass | 5 |
+| PIN-0014 | LINE Login provider | 4 |
