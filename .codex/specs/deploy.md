@@ -1,6 +1,6 @@
 # Deploying Pinto
 
-**Status:** draft, awaiting decisions on Q1–Q5.
+**Status:** decided 2026-09-12. เกรพ chose **(a), a shareable demo**, which settles Q1–Q5.
 
 Pinto has never been deployed. Everything in this document about how the pipeline behaves
 was read out of the repository and the build output on 2026-09-12; everything marked
@@ -81,7 +81,29 @@ That matters more than it sounds:
 PIN-0008's honest states mean the app will render an empty dashboard rather than crash, but
 the front door will be locked with nobody holding a key.
 
-## Open questions
+## Decisions
+
+เกรพ chose **(a)** on 2026-09-12: the deployment is a **shareable demo**, not a real shop.
+That answer carries the rest.
+
+| | decision |
+| --- | --- |
+| Q1 purpose | A shareable demo. |
+| Q2 demo sign-in | **Ships.** Every row in that database is public by design. |
+| Q3 bootstrap | Seed on deploy, gated so it only ever runs into an empty database. |
+| Q4 migrations | Settle by deploying once and looking. Cannot be reasoned about. |
+| Q5 advisories | After the first deploy, as their own change. |
+
+**The consequence to hold on to:** the deployed database is public. Anyone with the link
+presses one button and is the shop owner, with payouts and profit. Nothing real may ever be
+put in it. If Pinto later needs a real shop, that is a second deployment with the demo
+provider removed, not this one with extra care taken.
+
+Q4 has to come first. If migrations are not applied there are no tables, so there is nothing
+for a seed to write into and the shape of Q3's answer changes completely. That ordering is
+why the work splits into two tickets rather than one.
+
+## The questions as they were asked
 
 ### Q1 — What is the deployed Pinto *for*?
 This decides everything below it.
