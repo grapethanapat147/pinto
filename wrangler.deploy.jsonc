@@ -1,0 +1,25 @@
+// Deploy and `wrangler d1` only — pass it explicitly with `-c wrangler.deploy.jsonc`.
+//
+// Deliberately NOT named `wrangler.json`: @cloudflare/vite-plugin auto-discovers that name
+// and merges it into the generated manifest, which produced two D1 entries on the same
+// binding. `scripts/deploy.mjs` caught that and refused to deploy.
+//
+// `migrations_dir` belongs INSIDE the d1 entry. At the top level wrangler warns
+// "Unexpected fields" and then looks in ./migrations instead.
+//
+// The database id is a public identifier, not a secret. The channel secret is NOT here —
+// it goes in with `wrangler secret put`.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "pinto",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "pinto",
+      "database_id": "7f55f285-0c91-4963-8c2e-87c7db7dc4c9",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}
