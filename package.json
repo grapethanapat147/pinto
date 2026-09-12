@@ -16,7 +16,8 @@
     "db:local:seed": "node scripts/local-db.mjs seed",
     "db:local:reset": "node scripts/local-db.mjs reset",
     "auth:grant-line": "node scripts/grant-line-access.mjs",
-    "auth:set-line-secret": "node scripts/set-line-secret.mjs"
+    "auth:set-line-secret": "node scripts/set-line-secret.mjs",
+    "deploy": "npm run build && node scripts/deploy.mjs"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

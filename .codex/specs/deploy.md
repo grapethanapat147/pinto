@@ -97,7 +97,7 @@ That answer carries the rest.
 | Q1 purpose | A shareable demo. |
 | Q2 demo sign-in | **Ships.** Every row in that database is public by design. |
 | Q3 bootstrap | Seed on deploy, gated so it only ever runs into an empty database. |
-| Q4 migrations | Settle by deploying once and looking. Cannot be reasoned about. |
+| Q4 migrations | **Resolved 2026-09-12 on the Cloudflare route:** we apply them ourselves with `wrangler d1 migrations apply --remote`. All six succeeded. Still unknown for Sites. |
 | Q5 advisories | After the first deploy, as their own change. |
 
 **The consequence to hold on to:** the deployed database is public. Anyone with the link

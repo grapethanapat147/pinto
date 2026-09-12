@@ -1,6 +1,16 @@
 # Deploying Pinto to Cloudflare directly
 
-**Status:** draft, awaiting decisions on Q1–Q6.
+**Status:** decided 2026-09-12. เกรพ chose **this route** and delegated Q1–Q6 to the
+recommendations below, which are now the decisions:
+
+| | decision |
+| --- | --- |
+| Q1 config | A committed `wrangler.json` at the repo root, for `deploy` and `d1` only. |
+| Q2 database | Named `pinto`. |
+| Q3 Sites project | Left in place until a Cloudflare deploy succeeds. |
+| Q4 `IMAGES` | The `/_vinext/image` branch is deleted. |
+| Q5 seed | Unchanged: seed-on-empty in the Worker, PIN-0021. |
+| Q6 domain | `workers.dev`. |
 
 The alternative to `.codex/specs/deploy.md`'s OpenAI Sites route. เกรพ asked for this one
 because **nobody here knows the Sites procedure**: there is no `openai`, `codex` or `chatgpt`
