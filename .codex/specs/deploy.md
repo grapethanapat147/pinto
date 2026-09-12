@@ -6,6 +6,12 @@ Pinto has never been deployed. Everything in this document about how the pipelin
 was read out of the repository and the build output on 2026-09-12; everything marked
 **unverified** is a claim that cannot be checked without actually deploying once.
 
+> **A second route exists.** `.codex/specs/deploy-cloudflare.md` covers deploying to เกรพ's
+> own Cloudflare account with the Wrangler already in this project. It was written because
+> the Sites procedure below is *unknown* — no CLI, no CI, no documentation — while the
+> Cloudflare one has been verified as far as it can be without touching the account.
+> Q4 of this document is answered outright on that route: the migrations apply.
+
 ## How a deploy works here
 
 There is no `deploy` script and no `wrangler.toml`. The app is an **OpenAI Sites** project:
