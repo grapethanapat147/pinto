@@ -21,3 +21,5 @@
 | PIN-0019 | The dashboard scrolls sideways on a phone | 5 |
 | PIN-0018 | Design tokens and the quiet-chrome tone pass | 5 |
 | PIN-0014 | LINE Login provider | 4 |
+| PIN-0020 | First deploy: prove the pipeline | 6 |
+| PIN-0021 | Seed the demo shop in production | 6 |
