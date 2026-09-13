@@ -6,7 +6,7 @@
 # After editing, restart the dev server — these are read at startup, not on HMR.
 
 # Channel ID is not a secret: it travels in the browser's authorize URL.
-LINE_CHANNEL_ID=2011434259
+LINE_CHANNEL_ID=2011580015
 
 # Channel secret IS a secret. Copy it from the LINE Developers Console, keep it in
 # `.dev.vars` only, and never paste it into a commit, a chat message or hosting.json.

@@ -6,8 +6,12 @@
  * is the deliberate bootstrap: it needs filesystem access to the project, which is the
  * whole point of not doing it over HTTP.
  *
- * Usage: npm run auth:grant-line            (prompts for the id)
+ * Usage: npm run auth:grant-line              (local, prompts for the id)
+ *        npm run auth:grant-line -- --remote   (the deployed database)
  *        npm run auth:grant-line -- Uxxx owner
+ *
+ * `--remote` routes the same two statements through `wrangler d1 execute` instead of the
+ * local SQLite file, so granting access on the deployed demo does not mean hand-writing SQL.
  *
  * The LINE user id is shown to the caller on the refusal page after a successful LINE
  * sign-in. It is an identifier, not a secret, and nothing secret is written here.
@@ -18,9 +22,11 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { prompt } from "./prompt.mjs";
+import { readJsonc } from "./read-config.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const D1_DIR = join(root, ".wrangler/state/v3/d1/miniflare-D1DatabaseObject");
+const DEPLOY_CONFIG = join(root, "wrangler.deploy.jsonc");
 
 function localDatabase() {
   if (!existsSync(D1_DIR)) {
@@ -38,10 +44,28 @@ function localDatabase() {
   return join(D1_DIR, files[0]);
 }
 
-const query = (db, sql) =>
-  execFileSync("sqlite3", [db, sql], { encoding: "utf8" }).trim();
+const remote = process.argv.includes("--remote");
 
-const [argId, role = "owner", shopArg] = process.argv.slice(2);
+/** One scalar or row back, from whichever database was asked for. */
+function query(db, sql) {
+  if (!remote) return execFileSync("sqlite3", [db, sql], { encoding: "utf8" }).trim();
+
+  const { d1_databases: databases } = readJsonc(DEPLOY_CONFIG);
+  const name = databases.find((entry) => entry.binding === "DB")?.database_name;
+  if (!name) throw new Error("wrangler.deploy.jsonc has no DB binding.");
+
+  const out = execFileSync(
+    "npx",
+    ["wrangler", "d1", "execute", name, "--remote", "-c", DEPLOY_CONFIG, "--command", sql, "--json"],
+    { cwd: root, encoding: "utf8" },
+  );
+  // wrangler prints a banner before the JSON.
+  const rows = JSON.parse(out.slice(out.indexOf("[")))[0].results;
+  if (!rows.length) return "";
+  return String(Object.values(rows[0])[0] ?? "").trim();
+}
+
+const [argId, role = "owner", shopArg] = process.argv.slice(2).filter((a) => a !== "--remote");
 
 // Asking beats a documented placeholder. `npm run auth:grant-line -- <id>` sent a real
 // person's shell a redirection error, because `<` is redirection — so there is no
@@ -68,7 +92,8 @@ if (!/^U[0-9a-f]{32}$/.test(lineUserId)) {
   process.exit(1);
 }
 
-const db = localDatabase();
+const db = remote ? null : localDatabase();
+console.log(remote ? "Target: the DEPLOYED database." : "Target: the local database.");
 const escape = (value) => `'${String(value).replace(/'/g, "''")}'`;
 
 const shopId = shopArg ?? query(db, "SELECT id FROM shops ORDER BY id LIMIT 1;");

@@ -13,7 +13,7 @@ import { createTestD1 } from "./support/d1.mjs";
 
 const db = createTestD1();
 const CONFIG = {
-  LINE_CHANNEL_ID: "2011434259",
+  LINE_CHANNEL_ID: "2011580015",
   LINE_CHANNEL_SECRET: "test-secret-never-a-real-one",
   LINE_CALLBACK_URL: "http://localhost:5173/api/auth/line/callback",
 };
