@@ -690,6 +690,29 @@ button.stock-row:hover { background: #fdfaf8; }
 }
 .login-line-ready:hover { background: #05b34c; border-color: #05b34c; }
 
+/* Connections screen (PIN-0025). Plain rules, so they sit ABOVE the responsive layer. */
+.connection-panel { padding: 24px 26px 26px; margin-bottom: 18px; }
+.connection-list { display: grid; gap: 12px; margin-top: 18px; }
+.connection-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+.connection-row .channel-logo { width: 44px; height: 44px; font-size: 15px; }
+.connection-copy { min-width: 0; display: grid; gap: 3px; }
+.connection-copy strong { font-size: 15px; }
+.connection-copy small { color: var(--muted); font-size: 13px; }
+.connection-action { display: grid; justify-items: end; gap: 5px; }
+/* The reason a control is disabled has to be readable, so it is --muted rather than --soft:
+   PIN-0018 measured --soft at 2.77:1 and took it off text entirely. */
+.connection-blocked { max-width: 240px; color: var(--muted); font-size: 12px; text-align: right; line-height: 1.45; }
+.connection-action button:disabled { opacity: .55; cursor: not-allowed; }
+
 /* ---------------------------------------------------------------------------
  * Responsive layer (PIN-0019).
  *
@@ -748,7 +771,11 @@ button.stock-row:hover { background: #fdfaf8; }
 }
 
 @media (max-width: 760px) {
-  .app-shell { display: block; }.sidebar { width: 100%; }.content { width: 100%; }.topbar { min-height: 74px; padding-inline: 17px; }.topbar h1 { font-size: 15px; }.page-body { padding: 23px 17px 42px; }.welcome-row { align-items: flex-start; }.welcome-row h2 { font-size: 22px; }.welcome-row p { max-width: 220px; line-height: 1.5; }.add-cost-button { min-width: auto; padding-inline: 13px; font-size: 12px; }.period-tabs { position: static; }.overview-grid { grid-template-columns: 1fr; }.snapshot-stack { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; }.snapshot-card { min-height: 121px; align-items: flex-start; flex-direction: column; gap: 9px; }.snapshot-icon { width: 30px; height: 30px; }.snapshot-card h3 { font-size: 18px; }.today-layout { display: block; }.right-rail { grid-template-columns: 1fr; margin-top: 17px; }.compact-action-list > button { grid-template-columns: 31px minmax(0, 1fr) 14px; }.compact-action-list b { grid-column: 2; }.compact-action-list > button > i { grid-column: 3; grid-row: 1 / span 2; }.payout-schedule { margin-top: 18px; }
+  .app-shell { display: block; }
+  .connection-row { grid-template-columns: 40px minmax(0, 1fr); row-gap: 12px; }
+  .connection-row .status-pill { grid-column: 2; }
+  .connection-action { grid-column: 1 / -1; justify-items: stretch; }
+  .connection-blocked { max-width: none; text-align: left; }.sidebar { width: 100%; }.content { width: 100%; }.topbar { min-height: 74px; padding-inline: 17px; }.topbar h1 { font-size: 15px; }.page-body { padding: 23px 17px 42px; }.welcome-row { align-items: flex-start; }.welcome-row h2 { font-size: 22px; }.welcome-row p { max-width: 220px; line-height: 1.5; }.add-cost-button { min-width: auto; padding-inline: 13px; font-size: 12px; }.period-tabs { position: static; }.overview-grid { grid-template-columns: 1fr; }.snapshot-stack { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; }.snapshot-card { min-height: 121px; align-items: flex-start; flex-direction: column; gap: 9px; }.snapshot-icon { width: 30px; height: 30px; }.snapshot-card h3 { font-size: 18px; }.today-layout { display: block; }.right-rail { grid-template-columns: 1fr; margin-top: 17px; }.compact-action-list > button { grid-template-columns: 31px minmax(0, 1fr) 14px; }.compact-action-list b { grid-column: 2; }.compact-action-list > button > i { grid-column: 3; grid-row: 1 / span 2; }.payout-schedule { margin-top: 18px; }
 }
 
 @media (max-width: 520px) {

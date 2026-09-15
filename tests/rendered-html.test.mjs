@@ -59,6 +59,7 @@ const navLabels = [
   "ลูกค้า",
   "การเติบโต",
   "การเงิน",
+  "การเชื่อมต่อ",
 ];
 
 test("server-renders the Pinto seller dashboard", async () => {
@@ -565,6 +566,52 @@ test("scopes every read to the session's own shop", async () => {
   } finally {
     globalThis.__PINTO_TEST_ENV__ = seeded;
   }
+});
+
+/**
+ * The connections screen (PIN-0025). It exists before the marketplace APIs do, so the thing
+ * worth guarding is that it never claims otherwise — a button that looks live and does
+ * nothing is what PIN-0001 exists to prevent.
+ */
+test("the connections screen never offers a connection it cannot make", async () => {
+  const html = await (await render()).text();
+
+  // The screen is a client view, so its markup is not in the first response — the data it
+  // renders from is. Asserting on that is stronger anyway: it is the source the buttons
+  // derive from, so it cannot be right here and wrong on screen.
+  assert.match(html, /<em>การเชื่อมต่อ<\/em>/, "an owner gets the nav item");
+  assert.match(html, /ยังไม่ได้ตั้งค่า Shopee Open Platform/, "Shopee is blocked, with its reason");
+  assert.match(html, /ยังไม่ได้ตั้งค่า TikTok Shop Partner/, "TikTok is blocked, with its reason");
+
+  // **No channel may be connectable while no provider has credentials.** Counted rather than
+  // sampled, so adding a channel cannot quietly ship a live button.
+  const connectable = html.match(/\\"connectable\\":true/g) ?? [];
+  assert.equal(connectable.length, 0, `${connectable.length} channel(s) claim to be connectable`);
+  const blocked = html.match(/\\"connectable\\":false/g) ?? [];
+  assert.ok(blocked.length >= 5, `expected every channel to report blocked, found ${blocked.length}`);
+
+  // A raw ISO stamp in the payload means the query layer stopped formatting it (spec D3).
+  const stamps = html.match(/\\"lastSyncedAt\\":\\"[^"\\\\]*/g) ?? [];
+  for (const stamp of stamps) {
+    assert.doesNotMatch(stamp, /\d{4}-\d{2}-\d{2}T\d{2}:/, `an unformatted stamp reached the view: ${stamp}`);
+  }
+});
+
+test("staff cannot reach the connections screen or its data", async () => {
+  const staffCookie = await signIn("staff");
+  const staffHtml = await (await render("/", { cookie: staffCookie })).text();
+
+  assert.doesNotMatch(staffHtml, /<em>การเชื่อมต่อ<\/em>/, "the nav item must be filtered out");
+  assert.doesNotMatch(staffHtml, /ยังไม่ได้ตั้งค่า Shopee Open Platform/, "no provider detail");
+  assert.doesNotMatch(staffHtml, /"connections":\[\{/, "and no connection data in the payload");
+
+  // The sidebar's upgrade card carries a "จัดการการเชื่อมต่อ" button that now navigates to
+  // this owner-only view. Left visible it is a door that leads nowhere, which is the same
+  // class of lie as a button that does nothing.
+  assert.doesNotMatch(staffHtml, /จัดการการเชื่อมต่อ/, "no door to a view they cannot open");
+
+  const ownerHtml = await (await render()).text();
+  assert.match(ownerHtml, /<em>การเชื่อมต่อ<\/em>/, "an owner still gets it");
 });
 
 test("staff never receive finance data, owners do", async () => {

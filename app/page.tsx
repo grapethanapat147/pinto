@@ -13,6 +13,7 @@ import {
   listOrders,
   listPayouts,
   listRecommendations,
+  listChannelConnections,
   openActionImpactTotal,
   shopName,
 } from "../db/queries";
@@ -36,7 +37,7 @@ async function loadDashboard() {
     // component, and anything sent to it is readable however the nav is drawn.
     const canSeeFinance = session.role === "owner";
 
-    const [shop, orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations, channelSync] =
+    const [shop, orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations, channelSync, connections] =
       await Promise.all([
         shopName(session),
         listOrders(session),
@@ -49,6 +50,9 @@ async function loadDashboard() {
         listDashboardMetrics(session),
         listRecommendations(session),
         listChannelSync(session),
+        // Connecting a sales channel is not a packing assistant's job. Withheld on the
+        // server like the finance data in PIN-0013, not by hiding a nav item.
+        canSeeFinance ? listChannelConnections(session) : Promise.resolve([]),
       ]);
 
     if (!canSeeFinance) {
@@ -71,6 +75,7 @@ async function loadDashboard() {
       metrics,
       recommendations,
       channelSync,
+      connections,
     };
   } catch (error) {
     return { state: "error" as const, error: error instanceof Error ? error.message : undefined };
@@ -107,6 +112,7 @@ export default async function Page() {
       shopName={data.shopName}
       role={data.role}
       channelSync={data.channelSync}
+      connections={data.connections}
     />
   );
 }

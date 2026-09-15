@@ -8,7 +8,8 @@ export type View =
   | "stock"
   | "customers"
   | "growth"
-  | "money";
+  | "money"
+  | "connections";
 
 export type ActionTone = "danger" | "warning" | "success";
 
@@ -128,6 +129,28 @@ export type DashboardMetrics = {
  * Seed input shapes. The fixtures describe what goes *into* the database; `channelAccent`
  * and `accent` are resolved from the channels table on read, so they are not seed data.
  */
+/**
+ * A channel on the connections screen (PIN-0025).
+ *
+ * `connectable` is the honest half: a channel with no provider, or one whose provider has no
+ * credentials, cannot be connected and the card says so instead of offering a button that
+ * would do nothing.
+ */
+export type ChannelConnection = {
+  code: string;
+  displayName: string;
+  accent: string;
+  kind: "marketplace" | "ads" | "chat";
+  state: "healthy" | "syncing" | "degraded" | "disconnected";
+  label: string;
+  tone: string;
+  detail: string;
+  lastSyncedAt: string | null;
+  connectable: boolean;
+  /** Why not, when `connectable` is false. Empty when it is true. */
+  blockedReason: string;
+};
+
 export type ChannelSyncRow = {
   code: string;
   displayName: string;

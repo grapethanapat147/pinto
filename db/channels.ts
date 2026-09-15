@@ -120,8 +120,18 @@ export function createDemoAdapter(
   };
 }
 
-/** Health for every marketplace/chat channel — what the sync grid renders. */
-export async function listChannelHealth(session: SessionUser): Promise<ChannelHealthReport[]> {
+/**
+ * Health per channel.
+ *
+ * Ad platforms are excluded by default because they have no stock to sync, and the grid this
+ * was written for would be lying by listing them. The connections screen (PIN-0025) wants
+ * them — a merchant connects an ad account the same way they connect a marketplace — so it
+ * asks for them explicitly rather than this growing a second copy of the join.
+ */
+export async function listChannelHealth(
+  session: SessionUser,
+  { includeAds = false }: { includeAds?: boolean } = {}
+): Promise<ChannelHealthReport[]> {
   const db = getDb();
   const rows = await db
     .select({
@@ -140,8 +150,7 @@ export async function listChannelHealth(session: SessionUser): Promise<ChannelHe
     .where(eq(channels.shopId, session.shopId));
 
   const adapters = rows
-    // ad platforms have no stock to sync, so they are not part of this grid
-    .filter((row) => row.kind !== "ads")
+    .filter((row) => includeAds || row.kind !== "ads")
     .map((row) =>
       createDemoAdapter(
         {

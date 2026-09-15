@@ -18,8 +18,8 @@ import {
   formatThaiDay, formatTime, formatUpdatedAt,
 } from "../app/format";
 import type {
-  Campaign, ChannelSyncRow, Conversation, DashboardMetrics, InventoryItem, Order, Payout,
-  RecommendationPanel, ShopAction,
+  Campaign, ChannelConnection, ChannelSyncRow, Conversation, DashboardMetrics, InventoryItem,
+  Order, Payout, RecommendationPanel, ShopAction,
 } from "../app/types";
 
 /**
@@ -31,6 +31,7 @@ import type {
  */
 import type { SessionUser } from "./auth";
 import { listChannelHealth, loadChannels, requireChannel } from "./channels";
+import { providerStatus } from "./channel-providers";
 
 /**
  * Stock status is derived, not stored — storing it would bake in drift the moment
@@ -447,6 +448,42 @@ function lastSyncedLabel(iso: string | null): string {
  * StockView's sync grid. It was three hardcoded blocks that always read "ปกติ", so it
  * could never show a real problem — the one thing a sync indicator is for.
  */
+/**
+ * Every channel and whether it can actually be connected (PIN-0025).
+ *
+ * The state comes from `channel_health`; `connectable` comes from whether a provider exists
+ * and has credentials. Those are separate questions — a channel can be disconnected *and*
+ * unconnectable, which is exactly today's situation for Shopee and TikTok, and the screen has
+ * to say both rather than offering a button that would do nothing.
+ */
+export async function listChannelConnections(session: SessionUser): Promise<ChannelConnection[]> {
+  const reports = await listChannelHealth(session, { includeAds: true });
+
+  return reports.map((report) => {
+    const status = providerStatus(report.channel.code);
+    return {
+      code: report.channel.code,
+      displayName: report.channel.displayName,
+      accent: report.channel.accent,
+      kind: report.channel.kind,
+      state: report.state,
+      label: SYNC_LABEL[report.state].label,
+      tone: SYNC_LABEL[report.state].tone,
+      detail: report.detail ?? "",
+      // Formatted here like every other display string (spec D3), so the view never sees
+      // an ISO timestamp. The raw value leaked into the card as 2026-09-09T17:13:24.547Z.
+      lastSyncedAt: report.lastSyncedAt ? formatMessageStamp(report.lastSyncedAt) : null,
+      connectable: status?.configured === true,
+      blockedReason:
+        status === null
+          ? "ช่องทางนี้ยังไม่รองรับการเชื่อมต่ออัตโนมัติ"
+          : status.configured
+            ? ""
+            : status.reason,
+    };
+  });
+}
+
 export async function listChannelSync(session: SessionUser): Promise<ChannelSyncRow[]> {
   const [reports, pending] = await Promise.all([
     listChannelHealth(session),

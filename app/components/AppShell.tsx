@@ -16,10 +16,21 @@ import { MobileMoreSheet } from "./MobileMoreSheet";
 import { MoneyView } from "./MoneyView";
 import { OrdersView } from "./OrdersView";
 import { StockView } from "./StockView";
+import { ConnectionsView } from "./ConnectionsView";
 import { TodayView } from "./TodayView";
 import type {
-  Campaign, ChannelSyncRow, Conversation, DashboardMetrics, InventoryItem, Order, Payout,
-  RecommendationPanel, ShopAction, ToastTone, View,
+  Campaign,
+  ChannelConnection,
+  ChannelSyncRow,
+  Conversation,
+  DashboardMetrics,
+  InventoryItem,
+  Order,
+  Payout,
+  RecommendationPanel,
+  ShopAction,
+  ToastTone,
+  View,
 } from "../types";
 
 export function AppShell({
@@ -36,6 +47,7 @@ export function AppShell({
   shopName,
   role,
   channelSync,
+  connections,
 }: {
   orders: Order[];
   inventory: InventoryItem[];
@@ -50,6 +62,7 @@ export function AppShell({
   shopName: string;
   role: "owner" | "staff";
   channelSync: ChannelSyncRow[];
+  connections: ChannelConnection[];
 }) {
   const [view, setView] = useState<View>("today");
   // belt and braces: the finance data is already absent for staff, but do not route there either
@@ -117,7 +130,6 @@ export function AppShell({
         canSeeFinance={canSeeFinance}
         onChangeView={changeView}
         onToggleMobileMenu={() => setMobileMenuOpen((current) => !current)}
-        notify={notify}
       />
 
       <section className="content">
@@ -149,6 +161,7 @@ export function AppShell({
           {view === "growth" && <GrowthView campaigns={campaigns} metrics={metrics} recommendation={recommendations.growth} notify={notify} />}
           {view === "customers" && <CustomersView metrics={metrics} recommendation={recommendations.customers} notify={notify} />}
           {view === "money" && canSeeFinance && <MoneyView payouts={payouts} metrics={metrics} notify={notify} />}
+          {view === "connections" && canSeeFinance && <ConnectionsView connections={connections} notify={notify} />}
         </div>
       </section>
 

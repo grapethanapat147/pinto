@@ -3,8 +3,8 @@
 import { LayoutGrid, LogOut, Sparkles } from "lucide-react";
 
 import { PintoLogo } from "./PintoBrand";
-import { navItems } from "../fixtures/navigation";
-import type { Notify, View } from "../types";
+import { isVisibleTo, navItems } from "../fixtures/navigation";
+import type { View } from "../types";
 
 /**
  * Up to two initials for the avatar, replacing the hard-coded "ML".
@@ -28,7 +28,7 @@ function initials(name: string): string {
   return (firstGrapheme(words[0]) + firstGrapheme(words[1])).toUpperCase();
 }
 
-export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, shopName, canSeeFinance, onChangeView, onToggleMobileMenu, notify }: { view: View; activeCount: number; mobileMenuOpen: boolean; signedInAs: string; shopName: string; canSeeFinance: boolean; onChangeView: (view: View) => void; onToggleMobileMenu: () => void; notify: Notify }) {
+export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, shopName, canSeeFinance, onChangeView, onToggleMobileMenu }: { view: View; activeCount: number; mobileMenuOpen: boolean; signedInAs: string; shopName: string; canSeeFinance: boolean; onChangeView: (view: View) => void; onToggleMobileMenu: () => void }) {
   return (
     <aside className="sidebar">
       <button className="brand" onClick={() => onChangeView("today")} aria-label="กลับหน้าวันนี้">
@@ -57,7 +57,7 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, shop
       </nav>
       <small className="nav-label secondary-label">จัดการร้าน</small>
       <nav aria-label="เมนูจัดการร้าน">
-        {navItems.slice(4).filter((item) => canSeeFinance || item.id !== "money").map((item) => {
+        {navItems.slice(4).filter((item) => isVisibleTo(item, canSeeFinance)).map((item) => {
           const Icon = item.icon;
           return (
           <button
@@ -75,7 +75,9 @@ export function AppSidebar({ view, activeCount, mobileMenuOpen, signedInAs, shop
         <span><LayoutGrid size={21} /></span><em>เพิ่มเติม</em>
       </button>
       <div className="sidebar-lower">
-        <div className="upgrade-card"><span><Sparkles size={16} strokeWidth={1.9} /></span><strong>ปลดล็อกข้อมูลเชิงลึก</strong><small>เชื่อมต้นทุนให้ครบ เพื่อเห็นกำไรที่แม่นยำขึ้น</small><button onClick={() => notify("ตัวอย่าง — หน้าตั้งค่าการเชื่อมต่อช่องทางยังไม่เปิดใช้งาน", "demo")}>จัดการการเชื่อมต่อ</button></div>
+        {/* The card is about profit accuracy and its button now navigates to an owner-only
+            view, so a staff member would be offered a door that leads nowhere. */}
+        {canSeeFinance && <div className="upgrade-card"><span><Sparkles size={16} strokeWidth={1.9} /></span><strong>ปลดล็อกข้อมูลเชิงลึก</strong><small>เชื่อมต้นทุนให้ครบ เพื่อเห็นกำไรที่แม่นยำขึ้น</small><button onClick={() => onChangeView("connections")}>จัดการการเชื่อมต่อ</button></div>}
         <div className="store-card">
           <div className="store-avatar" aria-hidden="true">{initials(shopName)}</div>
           <div><strong>{shopName}</strong><small>{signedInAs}</small></div>
