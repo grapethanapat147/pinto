@@ -32,7 +32,12 @@ function problemPage(title: string, detail: string, status: number, extra = "") 
  p { margin:0 0 18px; color:#766f6b; font-size:13px; line-height:1.55; }
  code { display:block; margin:0 0 18px; padding:11px 13px; background:#f5f0ec;
         border-radius:7px; font-size:12px; text-align:left; word-break:break-all; }
- a { display:inline-block; min-height:44px; padding:12px 18px; border-radius:7px;
+ /* This page carries its own CSS and no reset, so box-sizing is content-box: a
+    min-height of 44px with 12px of vertical padding made a 68px button with its label
+    pinned to the top. Border-box plus inline-flex gives exactly the 44px tap target the
+    design system asks for, sized to the text. */
+ a { display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box;
+     min-height:44px; padding:0 20px; border-radius:7px;
      background:#c85410; color:#fff; font-size:13px; font-weight:500; text-decoration:none; }
 </style></head><body><main>
 <h1>${escape(title)}</h1><p>${escape(detail)}</p>${extra}

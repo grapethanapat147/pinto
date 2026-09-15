@@ -258,6 +258,19 @@ test("a known LINE user is signed in with a real session", async () => {
   }
 });
 
+test("the refusal page's button is sized to its text, not to a stray min-height", async () => {
+  const html = await (await fetchWorker("/api/auth/line/callback?code=x&state=nope")).text();
+
+  // These pages carry their own CSS and no reset, so `box-sizing` is `content-box` unless it
+  // is set. It was not, and a 44px min-height plus 12px of vertical padding rendered a 68px
+  // button with its label pinned to the top — เกรพ saw it in production and asked why.
+  const rule = html.match(/\sa \{[^}]*\}/);
+  assert.ok(rule, "the page should style its link as a button");
+  assert.match(rule[0], /box-sizing:\s*border-box/, "without this the padding is added to the height");
+  assert.match(rule[0], /min-height:\s*44px/, "the tap target the design system asks for");
+  assert.doesNotMatch(rule[0], /padding:\s*\d+px \d+px/, "vertical padding would grow it past 44px again");
+});
+
 test("the login page offers LINE only when the channel is configured", async () => {
   const ready = await (await fetchWorker("/login")).text();
   assert.match(ready, /href="\/api\/auth\/line\/start"/, "a live link when configured");
