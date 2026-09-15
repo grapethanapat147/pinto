@@ -135,7 +135,7 @@ When changing responsive behavior, verify at least these widths:
 - `staff` must never receive finance data. It is withheld on the **server**, not by hiding a
   nav item.
 - Toasts and UI state demonstrate workflows only. Do not present them as successful marketplace actions until a real backend confirms the operation.
-- Preserve `.openai/hosting.json` if continuing to deploy to the existing Sites project. Do not store API keys or secrets in that file.
+- Deploy with `npm run deploy`. The OpenAI Sites target was removed in PIN-0024; `git revert` that commit if it is ever wanted back.
 - Do not commit `.env`, credentials, access tokens, build output, or marketplace customer data.
 
 ## Where the work stands
@@ -154,8 +154,7 @@ adapter interface, auth and roles, honest states, and tests. 22 tickets closed, 
 3. **No backup or rollback story** for the deployed database.
 4. **4 npm advisories** left deliberately: all `drizzle-kit` → `esbuild`, where npm's only
    offered fix is a thirteen-version downgrade. Revisit when a forward fix ships.
-5. **`.openai/hosting.json` and the `sites()` plugin** still describe a deployment nobody
-   uses, now that Cloudflare is the route.
+5. **Type and query volume are untested at scale.** The demo has a handful of rows per table.
 
 ## Definition of done for future changes
 
