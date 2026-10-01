@@ -55,6 +55,14 @@ export const products = sqliteTable(
     sku: text("sku").notNull(),
     name: text("name").notNull(),
     category: text("category").notNull(),
+    /**
+     * What one unit costs the shop **now** (PIN-0026). Integer satang.
+     *
+     * Nullable on purpose: null means "not costed yet", which is not the same as free. A
+     * product with no cost makes every profit figure that includes it partial, and the
+     * screen has to say so (cost-and-profit spec, coverage) rather than treating it as ฿0.
+     */
+    unitCostSatang: integer("unit_cost_satang"),
   },
   (table) => [unique("products_shop_sku").on(table.shopId, table.sku)]
 );
@@ -102,6 +110,33 @@ export const orders = sqliteTable(
     unique("orders_shop_external").on(table.shopId, table.externalId),
     index("orders_shop_placed").on(table.shopId, table.placedAt),
     index("orders_shop_status").on(table.shopId, table.status),
+  ]
+);
+
+/**
+ * What an order actually contained (PIN-0026). The prerequisite for cost: `orders` stores a
+ * total and nothing about what was sold, so cost of goods per order was not computable.
+ *
+ * `unitCostSatang` is a **snapshot** taken when the line is recorded, copied from
+ * `products.unitCostSatang`. Raising a supplier price later must not rewrite last month's
+ * profit, and without the snapshot it would. Null when the product had no cost at the time —
+ * which keeps that line out of covered revenue rather than costing it at zero.
+ */
+export const orderLines = sqliteTable(
+  "order_lines",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    shopId: integer("shop_id").notNull().references(() => shops.id),
+    orderId: integer("order_id").notNull().references(() => orders.id),
+    productId: integer("product_id").notNull().references(() => products.id),
+    quantity: integer("quantity").notNull(),
+    /** What the buyer paid per unit on this order, which can differ by channel. */
+    unitPriceSatang: integer("unit_price_satang").notNull(),
+    unitCostSatang: integer("unit_cost_satang"),
+  },
+  (table) => [
+    index("order_lines_order").on(table.orderId),
+    index("order_lines_shop_product").on(table.shopId, table.productId),
   ]
 );
 

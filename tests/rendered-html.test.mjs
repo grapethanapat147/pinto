@@ -614,6 +614,61 @@ test("staff cannot reach the connections screen or its data", async () => {
   assert.match(ownerHtml, /<em>การเชื่อมต่อ<\/em>/, "an owner still gets it");
 });
 
+/**
+ * Order lines and unit cost (PIN-0026). The foundation for computing profit, so the
+ * invariants are checked against the seeded database itself rather than the fixture — the
+ * seed is what the app reads.
+ */
+test("every order's lines sum exactly to its total", async () => {
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+  const { results } = await db
+    .prepare(
+      `SELECT o.external_id AS id, o.total_satang AS total,
+              COALESCE(SUM(l.quantity * l.unit_price_satang), 0) AS lines
+       FROM orders o LEFT JOIN order_lines l ON l.order_id = o.id
+       GROUP BY o.id`,
+    )
+    .bind()
+    .all();
+
+  assert.ok(results.length > 0, "there should be seeded orders to check");
+  for (const row of results) {
+    assert.equal(
+      row.lines,
+      row.total,
+      `order ${row.id}: lines sum to ${row.lines} satang but the order says ${row.total}`,
+    );
+  }
+});
+
+test("each line snapshots its product's cost, and uncosted stays null rather than zero", async () => {
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+
+  // The snapshot is what keeps a later price change from rewriting history.
+  const mismatched = await db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM order_lines l JOIN products p ON p.id = l.product_id
+       WHERE l.unit_cost_satang IS NOT p.unit_cost_satang`,
+    )
+    .bind()
+    .first();
+  assert.equal(mismatched.n, 0, "a line's cost snapshot disagrees with its product at seed time");
+
+  // Partial coverage has to be real data, or PIN-0027's coverage display is untested.
+  const uncosted = await db
+    .prepare("SELECT COUNT(*) AS n FROM products WHERE unit_cost_satang IS NULL")
+    .bind()
+    .first();
+  assert.ok(uncosted.n >= 1, "at least one product must be uncosted so partial coverage exists");
+
+  // Null means "not costed yet". Zero would mean "free", and would silently inflate profit.
+  const zero = await db
+    .prepare("SELECT COUNT(*) AS n FROM products WHERE unit_cost_satang = 0")
+    .bind()
+    .first();
+  assert.equal(zero.n, 0, "an uncosted product must be null, never 0");
+});
+
 test("staff never receive finance data, owners do", async () => {
   const ownerHtml = await (await render("/", { cookie: await signIn("owner") })).text();
   const staffHtml = await (await render("/", { cookie: await signIn("staff") })).text();

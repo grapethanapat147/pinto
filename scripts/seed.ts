@@ -14,6 +14,7 @@ import { actionItems } from "../app/fixtures/actions.ts";
 import { campaigns } from "../app/fixtures/campaigns.ts";
 import { conversations } from "../app/fixtures/conversations.ts";
 import { inventory } from "../app/fixtures/inventory.ts";
+import { orderLines, productCosts } from "../app/fixtures/order-lines.ts";
 import { orders } from "../app/fixtures/orders.ts";
 import { payouts } from "../app/fixtures/payouts.ts";
 import {
@@ -24,6 +25,10 @@ import {
 const SHOP = "ร้าน Mali Living";
 
 /* ---------- conversions ---------- */
+
+/** Baht as a number -> integer satang. Declared first: the products and order-line inserts
+ *  call it at module load, and a `const` read before its declaration throws. */
+const money = (baht: number) => Math.round(baht * 100);
 
 /** "฿1,890" | "เสี่ยงเสีย ฿3,240" -> satang. Throws rather than guessing. */
 function satang(display: string): number {
@@ -122,7 +127,7 @@ const insert = (table: string, cols: string[], rows: (string | number | null)[][
 // Idempotent: wipe in FK-safe order, then reinsert. Only ever touches seeded tables.
 out.push("PRAGMA defer_foreign_keys = ON;");
 for (const t of [
-  "messages", "conversations", "orders", "inventory_levels", "products",
+  "messages", "conversations", "order_lines", "orders", "inventory_levels", "products",
   "actions", "campaigns", "payouts",
   // presentation scaffolding (schema-v1 Q1c)
   "dashboard_metrics", "channel_metrics", "customer_segments", "regions",
@@ -141,10 +146,19 @@ insert(
   CHANNELS.map((c, i) => [i + 1, 1, c.code, c.displayName, c.shortName, c.accent, c.kind])
 );
 
+const costOf = (sku: string) => {
+  const entry = productCosts[sku];
+  if (!entry) throw new Error(`No price/cost fixture for ${sku} — add it to order-lines.ts.`);
+  return entry;
+};
+
 insert(
   "products",
-  ["id", "shop_id", "sku", "name", "category"],
-  inventory.map((item, i) => [i + 1, 1, item.sku, item.name, item.category])
+  ["id", "shop_id", "sku", "name", "category", "unit_cost_satang"],
+  inventory.map((item, i) => {
+    const { cost } = costOf(item.sku);
+    return [i + 1, 1, item.sku, item.name, item.category, cost === null ? null : money(cost)];
+  })
 );
 
 insert(
@@ -164,6 +178,38 @@ insert(
 );
 
 const orderIdByExternal = new Map(orders.map((o, i) => [o.id, i + 1]));
+const productIdBySkuForLines = new Map(inventory.map((item, i) => [item.sku, i + 1]));
+
+// Order lines (PIN-0026). The cost column is a snapshot of the product's cost at seed time —
+// the same copy a real order takes when it is recorded. Lines must sum to the order's
+// existing total; a mismatch means the fixture and the order disagree, so it stops the seed.
+{
+  const rows: (string | number | null)[][] = [];
+  let lineId = 1;
+  for (const order of orders) {
+    const lines = orderLines[order.id];
+    if (!lines) throw new Error(`Order ${order.id} has no lines in order-lines.ts.`);
+    let sum = 0;
+    for (const line of lines) {
+      const { price, cost } = costOf(line.sku);
+      const productId = productIdBySkuForLines.get(line.sku);
+      if (!productId) throw new Error(`Order ${order.id} references unknown SKU ${line.sku}.`);
+      sum += money(price) * line.quantity;
+      rows.push([
+        lineId++, 1, orderIdByExternal.get(order.id)!, productId, line.quantity,
+        money(price), cost === null ? null : money(cost),
+      ]);
+    }
+    if (sum !== satang(order.total)) {
+      throw new Error(`Order ${order.id}: lines sum to ${sum} satang but the order total is ${satang(order.total)}.`);
+    }
+  }
+  insert(
+    "order_lines",
+    ["id", "shop_id", "order_id", "product_id", "quantity", "unit_price_satang", "unit_cost_satang"],
+    rows
+  );
+}
 
 insert(
   "conversations",
@@ -223,7 +269,6 @@ const productIdBySku = new Map(inventory.map((item, i) => [item.sku, i + 1]));
 const channelIdByCode = new Map<string, number>(CHANNELS.map((c, i) => [c.code, i + 1]));
 
 // baht in the fixture, satang in the column
-const money = (baht: number) => Math.round(baht * 100);
 const tileValue = (t: { value: number; unit: string }) =>
   t.unit === "satang" ? [money(t.value), null] : [null, t.value];
 

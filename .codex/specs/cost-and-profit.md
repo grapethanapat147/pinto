@@ -1,6 +1,15 @@
 # Cost, and making profit a real number
 
-**Status:** draft, awaiting decisions on Q1–Q6.
+**Status:** decided 2026-10-01. เกรพ accepted all six recommendations.
+
+| | decision |
+| --- | --- |
+| Q1 | One current cost per SKU, snapshotted onto each order line |
+| Q2 | `order_lines` seeded now, consistent with existing order totals; adapters fill them later |
+| Q3 | Profit computed; the three stored profit columns deprecated in place |
+| Q4 | Inline cost editing on Stock first, CSV import later |
+| Q5 | Cost is owner-only, enforced on the server |
+| Q6 | Ship the minimal version as three tickets: PIN-0026, PIN-0027, PIN-0028 |
 
 Pinto's reason to exist is in its own copy: *"เชื่อมต้นทุนให้ครบ เพื่อเห็นกำไรที่แม่นยำขึ้น"*.
 Today that sentence sits above a button that says the feature is not available, and the
