@@ -13,7 +13,6 @@ export function MoneyView({ payouts, metrics, notify }: { payouts: Payout[]; met
   const withdrawable = tile("withdrawable");
   const pending = tile("pending");
   const today = metrics.periods["วันนี้"];
-  const todayLabel = metrics.asOf.isToday ? "วันนี้" : metrics.asOf.day;
   const missing = metrics.uncosted;
 
   return (
@@ -25,7 +24,7 @@ export function MoneyView({ payouts, metrics, notify }: { payouts: Payout[]; met
       </section>
       <section className="money-layout">
         <article className="panel waterfall-panel">
-          <div className="panel-heading"><div><p>เส้นทางกำไร{todayLabel}</p><h3>ทุกบาทหายไปไหนบ้าง</h3></div><StatusPill tone={today.partial ? "warning" : "verified"}>ต้นทุนครบ {today.coverage}</StatusPill></div>
+          <div className="panel-heading"><div><p>เส้นทางกำไร{metrics.asOf.isToday ? "วันนี้" : ` ${metrics.asOf.day}`}</p><h3>ทุกบาทหายไปไหนบ้าง</h3></div><StatusPill tone={today.partial ? "warning" : "verified"}>ต้นทุนครบ {today.coverage}</StatusPill></div>
           <div className="waterfall">
             {metrics.waterfall.map((step) => (
               <div className="waterfall-column" key={step.kind}><i className={`wf-${step.kind}`} style={{ height: `${step.height}%` }} /><strong>{step.amount}</strong><span>{step.label}</span></div>

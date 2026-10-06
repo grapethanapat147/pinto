@@ -164,9 +164,9 @@ export function generateHistory({
 }
 
 /**
- * Daily ad spend, set from each day's real sales once they are priced: about 14.5% of the
- * day's TikTok and Shopee revenue — the ratio the old tiles implied — with noise. LINE MyShop
- * is a chat storefront with no paid placement here, so it carries no ad spend.
+ * Daily ad spend, set from each day's real sales once they are priced: 17–21% of the day's
+ * TikTok and Shopee revenue, which lands near 16% of all sales. LINE MyShop is a chat
+ * storefront with no paid placement here, so it carries no ad spend.
  */
 export function adSpendFor(
   salesByDayAndChannel: Map<string, number>,
@@ -183,4 +183,73 @@ export function adSpendFor(
     }
   }
   return out;
+}
+
+const BANGKOK_OFFSET_MS = 7 * 60 * 60_000; // Thailand has no daylight saving
+const DAY_MS = 24 * 60 * 60_000;
+
+export type PricedOrder = Omit<GeneratedOrder, "lines"> & {
+  totalSatang: number;
+  /** ISO-8601 UTC, on the Bangkok clock relative to the anchor. */
+  placedAt: string;
+  lines: { sku: string; quantity: number; unitPriceSatang: number; unitCostSatang: number | null }[];
+};
+
+export type PricedAdDay = { channel: "tiktok" | "shopee"; /** Bangkok YYYY-MM-DD */ day: string; spendSatang: number };
+
+/**
+ * The generated history, priced and dated: what both the seed and the production backfill
+ * (PIN-0029) write. One function so the two cannot drift apart.
+ *
+ * `anchor` is the moment the history runs up to — the seed's own run time locally, and the
+ * last sync time when backfilling a database that already has its hand-made orders. Day 0 is
+ * the anchor's Bangkok day, and today's orders stop 30 minutes before the anchor.
+ */
+export function pricedHistory({
+  anchor,
+  reservedToday,
+  prices,
+}: {
+  anchor: Date;
+  reservedToday: number;
+  /** Baht, keyed by SKU — `productCosts` from `app/fixtures/order-lines.ts`. */
+  prices: Record<string, { price: number; cost: number | null }>;
+}): { orders: PricedOrder[]; adDays: PricedAdDay[] } {
+  const midnight =
+    Math.floor((anchor.getTime() + BANGKOK_OFFSET_MS) / DAY_MS) * DAY_MS - BANGKOK_OFFSET_MS;
+  const minutesNow = Math.floor((anchor.getTime() - midnight) / 60_000);
+  const satang = (baht: number) => Math.round(baht * 100);
+
+  const { orders: history } = generateHistory({ seedAt: anchor, minutesNow, reservedToday });
+  const salesByDayAndChannel = new Map<string, number>();
+
+  const orders = history.map((order) => {
+    const lines = order.lines.map((line) => {
+      const entry = prices[line.sku];
+      if (!entry) throw new Error(`No price/cost fixture for ${line.sku} — add it to order-lines.ts.`);
+      return {
+        ...line,
+        unitPriceSatang: satang(entry.price),
+        unitCostSatang: entry.cost === null ? null : satang(entry.cost),
+      };
+    });
+    const totalSatang = lines.reduce((sum, line) => sum + line.unitPriceSatang * line.quantity, 0);
+    const key = `${order.dayOffset}:${order.channel}`;
+    salesByDayAndChannel.set(key, (salesByDayAndChannel.get(key) ?? 0) + totalSatang / 100);
+    return {
+      ...order,
+      lines,
+      totalSatang,
+      placedAt: new Date(midnight - order.dayOffset * DAY_MS + order.minute * 60_000).toISOString(),
+    };
+  });
+
+  const dayOffsets = [...new Set(history.map((order) => order.dayOffset))];
+  const adDays = adSpendFor(salesByDayAndChannel, dayOffsets).map((ad) => ({
+    channel: ad.channel,
+    day: new Date(midnight + BANGKOK_OFFSET_MS - ad.dayOffset * DAY_MS).toISOString().slice(0, 10),
+    spendSatang: satang(ad.spendBaht),
+  }));
+
+  return { orders, adDays };
 }

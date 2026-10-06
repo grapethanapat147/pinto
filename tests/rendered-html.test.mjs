@@ -816,7 +816,7 @@ test("windows end at the last sync, and say so when that was not today", async (
     assert.ok(Number(stale.periods["วันนี้"].orders.replace(/,/g, "")) > 50, "the anchor day still has its orders");
     const html = stripComments(await (await render("/", { cookie: await signIn() })).text());
     assert.match(html, new RegExp(`ข้อมูลถึง ${stale.asOf.day} ${stale.asOf.time} น\\.`), "the card names the day");
-    assert.match(html, new RegExp(`กำไร${stale.asOf.day}`), "and the heading does not say วันนี้");
+    assert.match(html, new RegExp(`กำไร ${stale.asOf.day}`), "and the heading names the day, spaced like กำไร 7 วัน");
     assert.doesNotMatch(html, /กำไรวันนี้/);
   } finally {
     globalThis.__PINTO_TEST_ENV__ = seeded;
@@ -864,6 +864,81 @@ test("the order list is bounded, and says how many it is not showing", async () 
   const html = await (await render()).text();
   const ids = new Set(html.match(/(?:TT|SP|LN)-\d{5}/g));
   assert.ok(ids.size <= ORDER_LIST_LIMIT + 10, `${ids.size} order ids reached the client`);
+});
+
+/**
+ * PIN-0029: the production backfill. The deployed database was seeded before PIN-0026 — six
+ * hand-made orders, no lines, no ad spend, no costs — and holds a granted LINE account, so it
+ * is brought forward additively instead of reseeded. This rebuilds that state and runs the
+ * same SQL the remote script runs.
+ */
+test("the backfill brings a pre-PIN-0026 database forward without touching a row it had", async () => {
+  const seeded = globalThis.__PINTO_TEST_ENV__;
+  const db = createTestD1();
+  globalThis.__PINTO_TEST_ENV__ = { DB: db };
+  try {
+    // the deployed database as it was: hand-made orders only, nothing PIN-0026/27 added,
+    // and its data from weeks ago, the way production's 12 Sep seed is
+    await db.exec(`
+      DELETE FROM order_lines; DELETE FROM ad_spend_daily;
+      DELETE FROM orders WHERE external_id NOT IN ('TT-10842','SP-48219','TT-10841','LN-39204','SP-48218','TT-10840');
+      UPDATE products SET unit_cost_satang = NULL;
+      UPDATE products SET unit_cost_satang = 99900 WHERE sku = 'ML-TR-031';
+      UPDATE orders SET placed_at = strftime('%Y-%m-%dT%H:%M:%fZ', placed_at, '-24 days');
+      UPDATE channel_health SET last_synced_at = strftime('%Y-%m-%dT%H:%M:%fZ', last_synced_at, '-24 days');
+      INSERT INTO users (shop_id, provider, provider_user_id, display_name, role) VALUES (1, 'line', 'U-granted', 'Grape', 'owner');
+    `);
+    const snapshot = async () =>
+      JSON.stringify([
+        await db.prepare("SELECT * FROM users ORDER BY id").bind().all(),
+        await db.prepare("SELECT * FROM orders ORDER BY id").bind().all(),
+        await db.prepare("SELECT id, sku, name FROM products ORDER BY id").bind().all(),
+        await db.prepare("SELECT * FROM channel_health ORDER BY id").bind().all(),
+      ]);
+    const before = await snapshot();
+
+    const { at } = await db.prepare("SELECT MAX(last_synced_at) AS at FROM channel_health").bind().first();
+    const anchor = new Date(at);
+    const { backfillSql } = await import("../scripts/backfill-history.ts");
+    const { sql, summary } = backfillSql({ shopId: 1, anchor, reservedToday: 6 });
+    await db.exec(`PRAGMA foreign_keys = ON;\n${sql}`);
+
+    // nothing it had was changed — the new orders are appended, so the first six still match
+    const after = JSON.parse(await snapshot());
+    const was = JSON.parse(before);
+    assert.deepEqual(after[0], was[0], "users, including the granted LINE account, are untouched");
+    assert.deepEqual(after[1].results.slice(0, 6), was[1].results, "the hand-made orders are untouched");
+    assert.deepEqual(after[2], was[2], "products keep their names and SKUs");
+    assert.deepEqual(after[3], was[3], "the last sync is not moved to make the demo look fresh");
+
+    const { n } = await db.prepare("SELECT COUNT(*) AS n FROM orders").bind().first();
+    assert.equal(n, 6 + summary.orders);
+    const mismatched = await db
+      .prepare("SELECT COUNT(*) AS n FROM orders o WHERE total_satang != (SELECT COALESCE(SUM(quantity * unit_price_satang), 0) FROM order_lines l WHERE l.order_id = o.id)")
+      .bind()
+      .first();
+    assert.equal(mismatched.n, 0, "every order, hand-made ones included, has lines summing to its total");
+    const late = await db.prepare("SELECT COUNT(*) AS n FROM orders WHERE placed_at > ?").bind(at).first();
+    assert.equal(late.n, 0, "no history after the last sync, where no window would ever count it");
+
+    // a cost someone already entered is kept; empty ones are filled; one stays uncosted
+    const costs = Object.fromEntries(
+      (await db.prepare("SELECT sku, unit_cost_satang AS cost FROM products").bind().all()).results.map((r) => [r.sku, r.cost])
+    );
+    assert.equal(costs["ML-TR-031"], 99900, "an existing cost is never overwritten");
+    assert.equal(costs["ML-CV-018"], 25000);
+    assert.equal(costs["ML-LN-012"], null);
+
+    // and the dashboard reads it as the day the data is from
+    const { listDashboardMetrics } = await import("../db/queries.ts");
+    const metrics = await listDashboardMetrics(ownerSession);
+    assert.equal(metrics.asOf.isToday, false);
+    assert.ok(Number(metrics.periods["วันนี้"].orders.replace(/,/g, "")) > 50, "the anchor day is a busy day");
+    assert.equal(metrics.periods["วันนี้"].partial, true);
+    assert.notEqual(metrics.periods["30 วัน"].change, "—", "thirty days before the window exist to compare with");
+  } finally {
+    globalThis.__PINTO_TEST_ENV__ = seeded;
+  }
 });
 
 test("staff never receive finance data, owners do", async () => {

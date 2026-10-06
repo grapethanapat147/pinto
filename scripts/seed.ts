@@ -15,7 +15,7 @@ import { campaigns } from "../app/fixtures/campaigns.ts";
 import { conversations } from "../app/fixtures/conversations.ts";
 import { inventory } from "../app/fixtures/inventory.ts";
 import { orderLines, productCosts } from "../app/fixtures/order-lines.ts";
-import { adSpendFor, generateHistory } from "./generate-history.ts";
+import { pricedHistory } from "./generate-history.ts";
 import { orders } from "../app/fixtures/orders.ts";
 import { payouts } from "../app/fixtures/payouts.ts";
 import {
@@ -58,8 +58,6 @@ const minutesAgo = (n: number) => new Date(SEED_AT.getTime() - n * 60_000).toISO
 const BANGKOK_OFFSET_MS = 7 * 60 * 60_000;
 const DAY_MS = 24 * 60 * 60_000;
 const BANGKOK_MIDNIGHT = Math.floor((SEED_AT.getTime() + BANGKOK_OFFSET_MS) / DAY_MS) * DAY_MS - BANGKOK_OFFSET_MS;
-/** Minutes since Bangkok midnight at the moment the seed runs. */
-const MINUTES_INTO_DAY = Math.floor((SEED_AT.getTime() - BANGKOK_MIDNIGHT) / 60_000);
 
 /** Day 0 is the seed date; `hhmm` is a Bangkok wall-clock time on that day. */
 function at(hhmm: string, dayOffset = 0): string {
@@ -236,16 +234,14 @@ const productIdBySkuForLines = new Map(inventory.map((item, i) => [item.sku, i +
 }
 
 // Sixty days of generated history (PIN-0027), around the six hand-made orders above. See
-// `scripts/generate-history.ts` for why, and why it is deterministic.
+// `scripts/generate-history.ts` for why, and why it is deterministic. The production
+// backfill (PIN-0029) writes the same history through the same `pricedHistory`.
 {
-  const { orders: history } = generateHistory({
-    seedAt: SEED_AT,
-    minutesNow: MINUTES_INTO_DAY,
+  const { orders: history, adDays } = pricedHistory({
+    anchor: SEED_AT,
     reservedToday: orders.length,
+    prices: productCosts,
   });
-
-  const hhmm = (minute: number) =>
-    `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
   const channelIdByCode: Record<string, number> = {
     tiktok: channelId("TikTok Shop"),
     shopee: channelId("Shopee"),
@@ -254,27 +250,20 @@ const productIdBySkuForLines = new Map(inventory.map((item, i) => [item.sku, i +
 
   const orderRows: (string | number | null)[][] = [];
   const lineRows: (string | number | null)[][] = [];
-  const salesByDayAndChannel = new Map<string, number>();
   let orderId = orders.length + 1;
   let lineId = 1_000_000; // well clear of the hand-made lines
 
   for (const order of history) {
-    let total = 0;
     for (const line of order.lines) {
-      const { price, cost } = costOf(line.sku);
-      total += money(price) * line.quantity;
       lineRows.push([
         lineId++, 1, orderId, productIdBySkuForLines.get(line.sku)!, line.quantity,
-        money(price), cost === null ? null : money(cost),
+        line.unitPriceSatang, line.unitCostSatang,
       ]);
     }
-    // `at` is the same clock the hand-made orders use, so "today" means one thing.
     orderRows.push([
       orderId++, 1, channelIdByCode[order.channel], order.externalId, order.customer,
-      total, order.status, at(hhmm(order.minute), -order.dayOffset),
+      order.totalSatang, order.status, order.placedAt,
     ]);
-    const key = `${order.dayOffset}:${order.channel}`;
-    salesByDayAndChannel.set(key, (salesByDayAndChannel.get(key) ?? 0) + total / 100);
   }
 
   // Thousands of rows: chunk the INSERTs so no single statement is unreasonably large.
@@ -294,15 +283,10 @@ const productIdBySkuForLines = new Map(inventory.map((item, i) => [item.sku, i +
     );
   }
 
-  // Ad spend per day per channel, from each day's priced sales.
-  const dayOffsets = [...new Set(history.map((order) => order.dayOffset))];
-  const adDays = adSpendFor(salesByDayAndChannel, dayOffsets);
   insert(
     "ad_spend_daily",
     ["id", "shop_id", "channel_id", "day", "spend_satang"],
-    adDays.map((ad, i) => [
-      i + 1, 1, channelIdByCode[ad.channel], dateOnly(-ad.dayOffset), money(ad.spendBaht),
-    ])
+    adDays.map((ad, i) => [i + 1, 1, channelIdByCode[ad.channel], ad.day, ad.spendSatang])
   );
 }
 

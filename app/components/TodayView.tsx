@@ -50,7 +50,7 @@ export function TodayView({ period, signedInAs, actions, metrics, payouts, canSe
             <article className="panel sales-overview-card">
               <div className="sales-card-head">
                 <div>
-                  <p>กำไร{period === "วันนี้" ? todayLabel : ` ${period}`}</p>
+                  <p>กำไร{period === "วันนี้" ? (asOf.isToday ? "วันนี้" : ` ${asOf.day}`) : ` ${period}`}</p>
                   <h2>{data.profit} <small className={`delta delta-${data.changeTrend}`}>{trendArrow(data.changeTrend)} {data.change}</small></h2>
                   <small className="profit-basis">{data.partial ? `ต้นทุนครบ ${data.coverage} ของยอดขาย · ` : ""}ยังไม่รวมค่าธรรมเนียมและค่าส่ง</small>
                 </div>

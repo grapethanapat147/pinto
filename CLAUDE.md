@@ -69,6 +69,17 @@ bindings. Verified with a probe route, not assumed.
 
 **`scripts/seed.ts` is destructive.** It opens with `DELETE FROM` across 22 tables including
 `users` and `sessions`. `npm run db:remote:seed` therefore refuses on a non-empty database.
+To bring an existing deployed database forward, use `npm run db:remote:backfill` (PIN-0029):
+additive only, refuses unless the target looks like a pre-PIN-0026 seed, records a D1 Time
+Travel bookmark before writing, and has a `-- --dry-run`.
+
+**`npm run deploy` does not apply migrations.** A schema change needs
+`npx wrangler d1 migrations apply pinto --remote -c wrangler.deploy.jsonc` (the backfill does
+this for 0006/0007) **before** the code that reads it is deployed.
+
+**The dashboard reports up to the last sync, not the clock** (PIN-0027). Windows end at
+`max(channel_health.last_synced_at)`, so a demo seeded weeks ago still shows that day's
+figures, labelled with its date. Tests compute expected money figures in SQL; never pin one.
 
 **A LINE user id is scoped to the provider, not the channel.** Moving a channel to a different
 provider issues a different id for the same person, and granted access stops matching.
@@ -77,9 +88,10 @@ provider issues a different id for the same person, and granted access stops mat
 
 ```bash
 npm run dev                  # local, port 5173
-npm test                     # builds, then 47 tests
+npm test                     # builds, then 58 tests
 npm run deploy               # build + Cloudflare
 npm run db:local:reset       # migrate + seed the local D1
+npm run db:remote:backfill   # bring production forward without deleting (-- --dry-run first)
 npm run auth:grant-line      # grant a LINE account access (add -- --remote for production)
 ```
 
