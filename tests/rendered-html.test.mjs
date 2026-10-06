@@ -818,6 +818,9 @@ test("windows end at the last sync, and say so when that was not today", async (
     assert.match(html, new RegExp(`ข้อมูลถึง ${stale.asOf.day} ${stale.asOf.time} น\\.`), "the card names the day");
     assert.match(html, new RegExp(`กำไร ${stale.asOf.day}`), "and the heading names the day, spaced like กำไร 7 วัน");
     assert.doesNotMatch(html, /กำไรวันนี้/);
+    // the Money hero's label is a stored row that said วันนี้ — found live on the deployed demo
+    const moneyProfit = stale.tiles.money.find((tile) => tile.key === "profit");
+    assert.equal(moneyProfit.label, `กำไรโดยประมาณ ${stale.asOf.day}`);
   } finally {
     globalThis.__PINTO_TEST_ENV__ = seeded;
   }

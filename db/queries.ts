@@ -371,7 +371,9 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
    * Tiles whose figure is now computed. The stored row still supplies the label and sort
    * order; value and note come from here, so a stale stored number cannot reach the screen.
    */
-  const computed: Record<string, Record<string, { value: string; note: string; trend?: "up" | "down" | "warning" }>> = {
+  const anchorIso = performance.anchor.toISOString();
+  const isToday = bangkokDay(anchorIso) === bangkokDay(new Date().toISOString());
+  const computed: Record<string, Record<string, { label?: string; value: string; note: string; trend?: "up" | "down" | "warning" }>> = {
     today: {
       quick_pack: { value: String(statusCounts.toPack), note: `${statusCounts.toPack.toLocaleString("en-US")} รายการรอแพ็ก` },
     },
@@ -387,6 +389,8 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
     },
     money: {
       profit: {
+        // the stored label says วันนี้; the figure is the anchor's day, which may not be today
+        label: `กำไรโดยประมาณ${isToday ? "วันนี้" : ` ${formatThaiDay(anchorIso)}`}`,
         value: todayFigures.profit,
         note: todayFigures.partial ? `ต้นทุนครบ ${todayFigures.coverage} ของยอดขาย` : "ต้นทุนครบทุกรายการ",
         trend: todayFigures.changeTrend === "down" ? "down" : "up",
@@ -401,7 +405,7 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
     const trend = override ? override.trend : row.trend && row.trend !== "neutral" ? row.trend : undefined;
     (tiles[row.scope] ??= []).push({
       key: row.metricKey,
-      label: row.label,
+      label: override?.label ?? row.label,
       value: override?.value ?? render(row),
       note: override?.note ?? row.note ?? "",
       ...(trend ? { trend } : {}),
@@ -416,7 +420,6 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
     .filter(([, totals]) => totals.orders > 0 || totals.adsSatang > 0)
     .sort(([, a], [, b]) => b.salesSatang - a.salesSatang);
 
-  const anchorIso = performance.anchor.toISOString();
   const profit = profitOf(today);
   // Sales is the tallest bar at 72% of the chart, as the stylesheet drew it; the rest are to scale.
   const barHeight = (satang: number) =>
@@ -426,7 +429,7 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
     asOf: {
       time: formatTime(anchorIso),
       day: formatThaiDay(anchorIso),
-      isToday: bangkokDay(anchorIso) === bangkokDay(new Date().toISOString()),
+      isToday,
       synced: performance.synced,
     },
     periods,
