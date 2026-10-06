@@ -27,3 +27,5 @@
 | PIN-0023 | CLAUDE.md no longer describes this project | 6 |
 | PIN-0024 | Remove the unused OpenAI Sites target | 6 |
 | PIN-0025 | The channel connections screen | 7 |
+| PIN-0026 | Order lines and unit cost | 8 |
+| PIN-0027 | Profit computed, with its coverage | 8 |
