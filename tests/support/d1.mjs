@@ -76,7 +76,10 @@ export function createTestD1({ seed = true } = {}) {
 
   if (seed) {
     // the same seed the local database uses, so tests exercise the real fixture mapping
-    database.exec(execFileSync("node", [join(root, "scripts/seed.ts")], { encoding: "utf8" }));
+    database.exec(execFileSync("node", [join(root, "scripts/seed.ts")], {
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024, // sixty days of generated orders is a few MB of SQL
+    }));
   }
 
   return asD1(database);

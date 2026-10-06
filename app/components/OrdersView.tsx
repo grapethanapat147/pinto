@@ -7,7 +7,7 @@ import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
 import type { MetricTile, Notify, Order } from "../types";
 
-export function OrdersView({ query, setQuery, orders: visibleOrders, tiles, notify }: { query: string; setQuery: (value: string) => void; orders: Order[]; tiles: MetricTile[]; notify: Notify }) {
+export function OrdersView({ query, setQuery, orders: visibleOrders, shown, total, tiles, notify }: { query: string; setQuery: (value: string) => void; orders: Order[]; shown: number; total: number; tiles: MetricTile[]; notify: Notify }) {
   const [orderFilter, setOrderFilter] = useState("ทั้งหมด");
   const orderFilters = ["ทั้งหมด", "รอแพ็ก", "พร้อมส่ง", "ตรวจสอบ", "จัดส่งแล้ว"];
   const filteredOrders = orderFilter === "ทั้งหมด" ? visibleOrders : visibleOrders.filter((order) => order.status === orderFilter);
@@ -33,6 +33,7 @@ export function OrdersView({ query, setQuery, orders: visibleOrders, tiles, noti
           ))}
         </div>
         {filteredOrders.length === 0 && <EmptyState title="ไม่พบออเดอร์" detail="ลองเปลี่ยนคำค้นหาหรือเลือกสถานะอื่น" />}
+        {total > shown && <p className="list-limit-note">แสดง {shown.toLocaleString("en-US")} ออเดอร์ล่าสุดจากทั้งหมด {total.toLocaleString("en-US")} รายการ · การค้นหาและตัวกรองใช้กับรายการที่แสดงเท่านั้น</p>}
       </section>
     </>
   );

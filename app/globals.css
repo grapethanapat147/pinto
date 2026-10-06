@@ -713,6 +713,12 @@ button.stock-row:hover { background: #fdfaf8; }
 .connection-blocked { max-width: 240px; color: var(--muted); font-size: 12px; text-align: right; line-height: 1.45; }
 .connection-action button:disabled { opacity: .55; cursor: not-allowed; }
 
+/* PIN-0027: what a computed profit leaves out, and how much of a long list is shown. */
+.delta-flat { color: var(--muted); }
+.profit-basis { display: block; margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.channel-panel .profit-basis { margin-top: 12px; }
+.list-limit-note { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
 /* ---------------------------------------------------------------------------
  * Responsive layer (PIN-0019).
  *

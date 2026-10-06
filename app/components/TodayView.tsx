@@ -19,10 +19,17 @@ import {
 import { ActionToneIcon } from "./ActionToneIcon";
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
-import type { DashboardMetrics, Notify, Payout, ShopAction, View } from "../types";
+import { trendArrow } from "../format";
+import type { DashboardMetrics, Notify, Payout, ShopAction, Trend, View } from "../types";
 
 export function TodayView({ period, signedInAs, actions, metrics, payouts, canSeeFinance, onOpenAction, onViewActions, onNavigate, notify }: { period: string; signedInAs: string; actions: ShopAction[]; metrics: DashboardMetrics; payouts: Payout[]; canSeeFinance: boolean; onOpenAction: (action: ShopAction) => void; onViewActions: () => void; onNavigate: (view: View) => void; notify: Notify }) {
-  const data = metrics.periods[period] ?? { profit: "", sales: "", ads: "", orders: "", change: "" };
+  const data = metrics.periods[period];
+  const { asOf } = metrics;
+  // "วันนี้" must not mean a day that has passed: if the last sync was earlier, name its day.
+  const todayLabel = asOf.isToday ? "วันนี้" : asOf.day;
+  const freshness = !asOf.synced ? "ยังไม่ได้ซิงก์" : asOf.isToday ? `อัปเดตล่าสุด ${asOf.time} น.` : `ข้อมูลถึง ${asOf.day} ${asOf.time} น.`;
+  const comparedWith = period === "วันนี้" ? "จากช่วงเดียวกันเมื่อวาน" : "จากช่วงก่อนหน้า";
+  const changeNote = (text: string, trend: Trend) => `${trendArrow(trend)} ${text} ${comparedWith}`;
   const tile = (key: string) => metrics.tiles.today?.find((item) => item.key === key);
   const bars = [42, 76, 58, 88, 64, 82];
   const costs = [28, 44, 38, 52, 35, 46];
@@ -42,8 +49,12 @@ export function TodayView({ period, signedInAs, actions, metrics, payouts, canSe
           <section className="overview-grid">
             <article className="panel sales-overview-card">
               <div className="sales-card-head">
-                <div><p>กำไร{period === "วันนี้" ? "วันนี้" : ` ${period}`}</p><h2>{data.profit} <small className="delta delta-up">↑ {data.change}</small></h2></div>
-                <span>อัปเดตล่าสุด 10:42 น.</span>
+                <div>
+                  <p>กำไร{period === "วันนี้" ? todayLabel : ` ${period}`}</p>
+                  <h2>{data.profit} <small className={`delta delta-${data.changeTrend}`}>{trendArrow(data.changeTrend)} {data.change}</small></h2>
+                  <small className="profit-basis">{data.partial ? `ต้นทุนครบ ${data.coverage} ของยอดขาย · ` : ""}ยังไม่รวมค่าธรรมเนียมและค่าส่ง</small>
+                </div>
+                <span>{freshness}</span>
               </div>
               <div className="sales-legend"><span><i className="profit-key" />กำไร</span><span><i className="cost-key" />ต้นทุนรวม</span></div>
               <div className="paired-chart" aria-label="กราฟเปรียบเทียบกำไรและต้นทุน 6 เดือน">
@@ -57,8 +68,8 @@ export function TodayView({ period, signedInAs, actions, metrics, payouts, canSe
             </article>
 
             <div className="snapshot-stack" aria-label="ตัวเลขสำคัญ">
-              <article className="snapshot-card"><span className="snapshot-icon"><BadgeDollarSign size={20} /></span><div><p>{tile("sales_note")?.label}</p><h3>{data.sales}</h3><small className="up">{tile("sales_note")?.note}</small></div></article>
-              <article className="snapshot-card"><span className="snapshot-icon"><PackageCheck size={20} /></span><div><p>{tile("orders_note")?.label}</p><h3>{data.orders}</h3><small className="up">{tile("orders_note")?.note}</small></div></article>
+              <article className="snapshot-card"><span className="snapshot-icon"><BadgeDollarSign size={20} /></span><div><p>{tile("sales_note")?.label}</p><h3>{data.sales}</h3><small className={data.salesTrend === "down" ? "down" : "up"}>{changeNote(data.salesChange, data.salesTrend)}</small></div></article>
+              <article className="snapshot-card"><span className="snapshot-icon"><PackageCheck size={20} /></span><div><p>{tile("orders_note")?.label}</p><h3>{data.orders}</h3><small className={data.ordersTrend === "down" ? "down" : "up"}>{changeNote(data.ordersChange, data.ordersTrend)}</small></div></article>
               <article className="snapshot-card"><span className="snapshot-icon"><Clock3 size={20} /></span><div><p>{tile("pending_payout")?.label}</p><h3>{tile("pending_payout")?.value}</h3><small className="warning-text">{tile("pending_payout")?.note}</small></div></article>
             </div>
           </section>
@@ -85,13 +96,15 @@ export function TodayView({ period, signedInAs, actions, metrics, payouts, canSe
           </section>
 
           <section className="panel channel-panel">
-            <div className="panel-heading"><div><p>ช่องทางการขาย</p><h3>แต่ละช่องทางทำกำไรแค่ไหน</h3></div><small className="freshness">ข้อมูลล่าสุด 10:42 น.</small></div>
+            <div className="panel-heading"><div><p>ช่องทางการขาย</p><h3>แต่ละช่องทางทำกำไรแค่ไหน</h3></div><small className="freshness">{todayLabel}{asOf.synced ? ` ถึง ${asOf.time} น.` : ""}</small></div>
             <div className="channel-table table-scroll">
               <div className="table-row table-head"><span>ช่องทาง</span><span>ยอดขาย</span><span>ออเดอร์</span><span>กำไร</span><span>อัตรากำไร</span></div>
               {metrics.channels.map((row) => (
                 <div className="table-row" key={row.code}><span><i className={`channel-logo ${row.code}`}>{row.channel[0]}</i>{row.channel}</span><span>{row.sales}</span><span>{row.orders}</span><strong>{row.profit}</strong><StatusPill tone="good">{row.margin}</StatusPill></div>
               ))}
             </div>
+            {metrics.channels.length === 0 && <EmptyState title="ยังไม่มีออเดอร์ในช่วงนี้" detail="เมื่อมีออเดอร์เข้ามา ยอดของแต่ละช่องทางจะแสดงที่นี่" />}
+            <p className="profit-basis">กำไร = ยอดขาย − ต้นทุนสินค้า − ค่าโฆษณา{metrics.periods["วันนี้"].partial ? ` · ต้นทุนครบ ${metrics.periods["วันนี้"].coverage} ของยอดขาย` : ""} · ยังไม่รวมค่าธรรมเนียมและค่าส่ง</p>
           </section>
         </div>
 

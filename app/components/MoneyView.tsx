@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowRight, Check } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
 import { StatusPill } from "./StatusPill";
+import { trendArrow } from "../format";
 import type { DashboardMetrics, Notify, Payout } from "../types";
 
 export function MoneyView({ payouts, metrics, notify }: { payouts: Payout[]; metrics: DashboardMetrics; notify: Notify }) {
@@ -11,24 +12,32 @@ export function MoneyView({ payouts, metrics, notify }: { payouts: Payout[]; met
   const profit = tile("profit");
   const withdrawable = tile("withdrawable");
   const pending = tile("pending");
+  const today = metrics.periods["วันนี้"];
+  const todayLabel = metrics.asOf.isToday ? "วันนี้" : metrics.asOf.day;
+  const missing = metrics.uncosted;
 
   return (
     <>
       <section className="money-hero">
-        <article><p>{profit?.label}</p><h2>{profit?.value}</h2><small className="delta delta-up">↑ 12.4%</small><small>{profit?.note}</small></article>
+        <article><p>{profit?.label}</p><h2>{profit?.value}</h2><small className={`delta delta-${today.changeTrend}`}>{trendArrow(today.changeTrend)} {today.change}</small><small>{profit?.note}</small></article>
         <article><p>{withdrawable?.label}</p><h2>{withdrawable?.value}</h2><button className="primary-button" onClick={() => notify("ตัวอย่าง — ยังไม่มีการถอนเงินจริง", "demo")}>ดูรายละเอียด</button></article>
         <article><p>{pending?.label}</p><h2>{pending?.value}</h2><div className="mini-payout">{(pending?.note ?? "").split(" · ").map((part) => <span key={part}>{part}</span>)}</div></article>
       </section>
       <section className="money-layout">
         <article className="panel waterfall-panel">
-          <div className="panel-heading"><div><p>เส้นทางกำไรวันนี้</p><h3>ทุกบาทหายไปไหนบ้าง</h3></div><StatusPill tone="verified">ข้อมูล 98.6%</StatusPill></div>
+          <div className="panel-heading"><div><p>เส้นทางกำไร{todayLabel}</p><h3>ทุกบาทหายไปไหนบ้าง</h3></div><StatusPill tone={today.partial ? "warning" : "verified"}>ต้นทุนครบ {today.coverage}</StatusPill></div>
           <div className="waterfall">
             {metrics.waterfall.map((step) => (
-              <div className="waterfall-column" key={step.kind}><i className={`wf-${step.kind}`} /><strong>{step.amount}</strong><span>{step.label}</span></div>
+              <div className="waterfall-column" key={step.kind}><i className={`wf-${step.kind}`} style={{ height: `${step.height}%` }} /><strong>{step.amount}</strong><span>{step.label}</span></div>
             ))}
           </div>
         </article>
-        <article className="panel money-note"><span className="spark dark"><Check size={20} /></span><p>ตรวจสอบข้อมูลแล้ว</p><h3>ตัวเลขใกล้ครบทั้งหมด</h3><p>มีเพียง 4 ออเดอร์ที่รอค่าขนส่งจริง ระบบจะปรับกำไรให้อัตโนมัติเมื่อข้อมูลเข้ามา</p><button className="quiet-button wide icon-text-button" onClick={() => notify("ตัวอย่าง — รายการที่รอตรวจสอบยังไม่เปิดใช้งาน", "demo")}>ดู 4 รายการ <ArrowRight size={15} /></button></article>
+        {/* What this profit leaves out, from the data rather than a promise (PIN-0027). */}
+        {today.partial ? (
+          <article className="panel money-note"><span className="spark dark"><AlertTriangle size={20} /></span><p>ข้อมูลยังไม่ครบ</p><h3>กำไรนี้ยังสูงกว่าความจริง</h3><p>สินค้า {missing.length} รายการยังไม่มีต้นทุน{missing.length > 0 ? ` (${missing.join(", ")})` : ""} จึงคิดต้นทุนได้ {today.coverage} ของยอดขาย และยังไม่รวมค่าธรรมเนียมกับค่าส่ง ซึ่งจะหักให้เมื่อเชื่อมต่อแพลตฟอร์มจริง</p><button className="quiet-button wide icon-text-button" onClick={() => notify("ตัวอย่าง — การแก้ต้นทุนสินค้ายังไม่เปิดใช้งาน", "demo")}>เพิ่มต้นทุนสินค้า <ArrowRight size={15} /></button></article>
+        ) : (
+          <article className="panel money-note"><span className="spark dark"><Check size={20} /></span><p>ต้นทุนครบทุกรายการ</p><h3>กำไรนี้คิดจากต้นทุนจริง</h3><p>ยังไม่รวมค่าธรรมเนียมกับค่าส่ง ซึ่งจะหักให้เมื่อเชื่อมต่อแพลตฟอร์มจริง</p></article>
+        )}
       </section>
       <section className="panel payout-panel">
         <div className="panel-heading"><div><p>กำหนดการรับเงิน</p><h3>เงินที่แพลตฟอร์มกำลังจะโอน</h3></div><button className="secondary-button" onClick={() => notify("ตัวอย่าง — การดาวน์โหลดรายงานยังไม่เปิดใช้งาน", "demo")}>ดาวน์โหลดรายงาน</button></div>

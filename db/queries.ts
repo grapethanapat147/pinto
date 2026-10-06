@@ -4,23 +4,24 @@
  *
  * Derived values are computed here rather than stored (schema-v1 F2).
  */
-import { and, asc, desc, eq, isNull, ne, sum } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lte, ne, sql, sum } from "drizzle-orm";
 
 import { getDb } from "./index";
 import {
-  actions, campaigns, channelMetrics, channels, conversations, customerSegments,
+  actions, campaigns, channels, conversations, customerSegments,
   inventoryChannelSync,
   dashboardMetrics, inventoryLevels, messages, orders, payouts, productOpportunities,
-  products, recommendations, regions, restockSuggestions, shops, waterfallSteps,
+  products, recommendations, regions, restockSuggestions, shops,
 } from "./schema";
 import {
-  formatBaht, formatCompactBaht, formatMessageStamp, formatPercent, formatRoas,
-  formatThaiDay, formatTime, formatUpdatedAt,
+  bangkokDay, formatBaht, formatChange, formatCompactBaht, formatMessageStamp, formatPercent,
+  formatRoas, formatThaiDay, formatTime, formatUpdatedAt, trendArrow,
 } from "../app/format";
 import type {
   Campaign, ChannelConnection, ChannelSyncRow, Conversation, DashboardMetrics, InventoryItem,
-  Order, Payout, RecommendationPanel, ShopAction,
+  Order, PeriodFigures, Payout, RecommendationPanel, ShopAction,
 } from "../app/types";
+import { coverageOf, loadPerformance, PERIODS, profitOf, windowsFor, type PeriodPerformance } from "./performance";
 
 /**
  * Every read takes the caller's session and scopes to `session.shopId`.
@@ -60,6 +61,13 @@ export async function shopName(session: SessionUser): Promise<string> {
   return row?.name ?? "ร้านของคุณ";
 }
 
+/**
+ * How many orders the Orders view lists. Since PIN-0027 the shop has sixty days of history —
+ * thousands of orders — and all of them would be serialised to the client on every request.
+ */
+export const ORDER_LIST_LIMIT = 100;
+
+/** The newest orders, up to `ORDER_LIST_LIMIT`. Pair with `countOrders` so the view can say how many it is not showing. */
 export async function listOrders(session: SessionUser): Promise<Order[]> {
   const db = getDb();
   const rows = await db
@@ -74,7 +82,8 @@ export async function listOrders(session: SessionUser): Promise<Order[]> {
     .from(orders)
     .innerJoin(channels, eq(channels.id, orders.channelId))
     .where(eq(orders.shopId, session.shopId))
-    .orderBy(desc(orders.placedAt));
+    .orderBy(desc(orders.placedAt))
+    .limit(ORDER_LIST_LIMIT);
 
   const known = await loadChannels(session);
   return rows.map((row) => ({
@@ -86,6 +95,14 @@ export async function listOrders(session: SessionUser): Promise<Order[]> {
     status: row.status,
     time: formatTime(row.placedAt),
   }));
+}
+
+export async function countOrders(session: SessionUser): Promise<number> {
+  const [row] = await getDb()
+    .select({ total: sql<number>`count(*)` })
+    .from(orders)
+    .where(eq(orders.shopId, session.shopId));
+  return Number(row?.total ?? 0);
 }
 
 /**
@@ -273,35 +290,48 @@ export async function openActionImpactTotal(session: SessionUser): Promise<strin
   return formatBaht(Number(row?.total ?? 0));
 }
 
+/** One period's figures, formatted. Profit and its coverage always travel together. */
+function periodFigures({ current, previous }: PeriodPerformance): PeriodFigures {
+  const profit = formatChange(profitOf(current), profitOf(previous));
+  const sales = formatChange(current.salesSatang, previous.salesSatang);
+  const count = formatChange(current.orders, previous.orders);
+  const coverage = coverageOf(current);
+  return {
+    profit: formatBaht(profitOf(current)),
+    sales: formatBaht(current.salesSatang),
+    ads: formatBaht(current.adsSatang),
+    orders: current.orders.toLocaleString("en-US"),
+    change: profit.text,
+    changeTrend: profit.trend,
+    salesChange: sales.text,
+    salesTrend: sales.trend,
+    ordersChange: count.text,
+    ordersTrend: count.trend,
+    // floored, so 99.97% never rounds up to a "100%" that would hide the missing cost
+    coverage: `${Math.floor(coverage * 10) / 10}%`,
+    partial: coverage < 100,
+  };
+}
+
 /**
- * The presentation figures that were JSX literals until PIN-0009.
+ * The dashboard's figures.
  *
- * Temporary scaffolding, like the tables behind it: once there is enough real data these
- * become aggregates over the domain tables. Values are stored as numbers and formatted
- * here, so nothing in a component is a display string any more.
+ * Since PIN-0027 the sales, ads, orders and profit figures — the Today card, its channel
+ * table, the Money hero and waterfall, the Orders count tiles — are computed from orders
+ * (`./performance`). The rest are still the presentation rows PIN-0009 transcribed from JSX:
+ * segments, regions, restock, opportunities and the other views' tiles, until they get the
+ * same treatment. `channel_metrics`, `waterfall_steps` and the period rows of
+ * `dashboard_metrics` are no longer read.
  */
 export async function listDashboardMetrics(session: SessionUser): Promise<DashboardMetrics> {
   const db = getDb();
   const where = eq(dashboardMetrics.shopId, session.shopId);
 
-  const [metricRows, channelRows, segmentRows, regionRows, waterfallRows, restockRows, opportunityRows] =
+  const [metricRows, segmentRows, regionRows, restockRows, opportunityRows, performance, known] =
     await Promise.all([
       db.select().from(dashboardMetrics).where(where).orderBy(asc(dashboardMetrics.sortOrder)),
-      db
-        .select({
-          channel: channels.displayName,
-          code: channels.code,
-          accent: channels.accent,
-          salesSatang: channelMetrics.salesSatang,
-          orderCount: channelMetrics.orderCount,
-          profitSatang: channelMetrics.profitSatang,
-        })
-        .from(channelMetrics)
-        .innerJoin(channels, eq(channels.id, channelMetrics.channelId))
-        .where(eq(channelMetrics.shopId, session.shopId)),
       db.select().from(customerSegments).where(eq(customerSegments.shopId, session.shopId)).orderBy(asc(customerSegments.sortOrder)),
       db.select().from(regions).where(eq(regions.shopId, session.shopId)).orderBy(asc(regions.sortOrder)),
-      db.select().from(waterfallSteps).where(eq(waterfallSteps.shopId, session.shopId)).orderBy(asc(waterfallSteps.sortOrder)),
       db
         .select({ name: products.name, quantity: restockSuggestions.suggestedQuantity })
         .from(restockSuggestions)
@@ -319,7 +349,10 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
         .innerJoin(products, eq(products.id, productOpportunities.productId))
         .where(eq(productOpportunities.shopId, session.shopId))
         .orderBy(asc(productOpportunities.sortOrder)),
+      loadPerformance(session),
+      loadChannels(session),
     ]);
+  const statusCounts = await orderStatusCounts(session, performance.anchor.getTime());
 
   const render = (row: (typeof metricRows)[number]): string => {
     if (row.unit === "satang") return formatBaht(row.valueSatang ?? 0);
@@ -330,37 +363,87 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
   };
 
   const periods: DashboardMetrics["periods"] = {};
+  for (const period of PERIODS) periods[period.key] = periodFigures(performance.periods[period.key]);
+  const today = performance.periods[PERIODS[0].key].current;
+  const todayFigures = periods[PERIODS[0].key];
+
+  /**
+   * Tiles whose figure is now computed. The stored row still supplies the label and sort
+   * order; value and note come from here, so a stale stored number cannot reach the screen.
+   */
+  const computed: Record<string, Record<string, { value: string; note: string; trend?: "up" | "down" | "warning" }>> = {
+    today: {
+      quick_pack: { value: String(statusCounts.toPack), note: `${statusCounts.toPack.toLocaleString("en-US")} รายการรอแพ็ก` },
+    },
+    orders: {
+      new: {
+        value: todayFigures.orders,
+        note: `${trendArrow(todayFigures.ordersTrend)} ${todayFigures.ordersChange} จากช่วงเดียวกันเมื่อวาน`,
+        trend: todayFigures.ordersTrend === "down" ? "down" : "up",
+      },
+      to_pack: { value: statusCounts.toPack.toLocaleString("en-US"), note: "รวมทุกช่องทาง" },
+      to_review: { value: statusCounts.toReview.toLocaleString("en-US"), note: "มีความเสี่ยงผิดปกติ", trend: "warning" },
+      delivered: { value: statusCounts.deliveredThisWeek.toLocaleString("en-US"), note: "ในรอบ 7 วัน", trend: "up" },
+    },
+    money: {
+      profit: {
+        value: todayFigures.profit,
+        note: todayFigures.partial ? `ต้นทุนครบ ${todayFigures.coverage} ของยอดขาย` : "ต้นทุนครบทุกรายการ",
+        trend: todayFigures.changeTrend === "down" ? "down" : "up",
+      },
+    },
+  };
+
   const tiles: DashboardMetrics["tiles"] = {};
   for (const row of metricRows) {
-    if (row.period) {
-      const bucket = (periods[row.period] ??= { profit: "", sales: "", ads: "", orders: "", change: "" });
-      if (row.metricKey in bucket) bucket[row.metricKey as keyof typeof bucket] = render(row);
-      continue;
-    }
+    if (row.period) continue; // superseded by `periods`, computed above
+    const override = computed[row.scope]?.[row.metricKey];
+    const trend = override ? override.trend : row.trend && row.trend !== "neutral" ? row.trend : undefined;
     (tiles[row.scope] ??= []).push({
       key: row.metricKey,
       label: row.label,
-      value: render(row),
-      note: row.note ?? "",
-      ...(row.trend && row.trend !== "neutral" ? { trend: row.trend } : {}),
+      value: override?.value ?? render(row),
+      note: override?.note ?? row.note ?? "",
+      ...(trend ? { trend } : {}),
     });
   }
 
   // the widest bar is the reference; the fixtures' 100/38/28/22/19 fall straight out of this
   const widestShare = Math.max(...regionRows.map((r) => r.sharePercent), 1);
 
+  const channelIdentity = new Map([...known.values()].map((channel) => [channel.id, channel]));
+  const channelRows = [...performance.channels.entries()]
+    .filter(([, totals]) => totals.orders > 0 || totals.adsSatang > 0)
+    .sort(([, a], [, b]) => b.salesSatang - a.salesSatang);
+
+  const anchorIso = performance.anchor.toISOString();
+  const profit = profitOf(today);
+  // Sales is the tallest bar at 72% of the chart, as the stylesheet drew it; the rest are to scale.
+  const barHeight = (satang: number) =>
+    today.salesSatang > 0 ? Math.max(2, Math.round((satang / today.salesSatang) * 72)) : 0;
+
   return {
+    asOf: {
+      time: formatTime(anchorIso),
+      day: formatThaiDay(anchorIso),
+      isToday: bangkokDay(anchorIso) === bangkokDay(new Date().toISOString()),
+      synced: performance.synced,
+    },
     periods,
+    uncosted: performance.uncosted,
     tiles,
-    channels: channelRows.map((row) => ({
-      channel: row.channel,
-      code: row.accent,
-      sales: formatBaht(row.salesSatang),
-      orders: String(row.orderCount),
-      profit: formatBaht(row.profitSatang),
-      // derived, never stored
-      margin: formatPercent((row.profitSatang / row.salesSatang) * 100),
-    })),
+    channels: channelRows.map(([channelId, totals]) => {
+      const channel = channelIdentity.get(channelId);
+      if (!channel) throw new Error(`Orders reference channel ${channelId}, which this shop does not have.`);
+      return {
+        channel: channel.displayName,
+        code: channel.accent,
+        sales: formatBaht(totals.salesSatang),
+        orders: totals.orders.toLocaleString("en-US"),
+        profit: formatBaht(profitOf(totals)),
+        margin: totals.salesSatang > 0 ? formatPercent((profitOf(totals) / totals.salesSatang) * 100) : "—",
+      };
+    }),
     segments: segmentRows.map((row) => ({
       key: row.segmentKey,
       label: row.label,
@@ -372,11 +455,13 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
       value: formatPercent(row.sharePercent),
       width: Math.round((row.sharePercent / widestShare) * 100),
     })),
-    waterfall: waterfallRows.map((row) => ({
-      label: row.label,
-      amount: `${row.kind === "sales" || row.kind === "profit" ? "" : "−"}${formatCompactBaht(row.amountSatang)}`,
-      kind: row.kind,
-    })),
+    // Fees and shipping are not here because nothing supplies them yet; the view says so.
+    waterfall: [
+      { label: "ยอดขาย", amount: formatCompactBaht(today.salesSatang), kind: "sales", height: barHeight(today.salesSatang) },
+      { label: "ต้นทุนสินค้า", amount: `−${formatCompactBaht(today.cogsSatang)}`, kind: "cost", height: barHeight(today.cogsSatang) },
+      { label: "โฆษณา", amount: `−${formatCompactBaht(today.adsSatang)}`, kind: "ads", height: barHeight(today.adsSatang) },
+      { label: "กำไร", amount: `${profit < 0 ? "−" : ""}${formatCompactBaht(Math.abs(profit))}`, kind: "profit", height: barHeight(Math.abs(profit)) },
+    ],
     restock: restockRows.map((row) => ({ name: row.name, quantity: `+${row.quantity} ชิ้น` })),
     opportunities: opportunityRows.map((row) => ({
       name: row.name,
@@ -384,6 +469,31 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
       profit: `กำไร ${formatBaht(row.profitSatang)}`,
       accent: row.accent,
     })),
+  };
+}
+
+/**
+ * Work waiting on the shop, by order status. Pending work counts regardless of age — an
+ * order still unpacked from yesterday is still unpacked — while "delivered" is the last
+ * seven days, since a running total since the shop opened says nothing.
+ */
+async function orderStatusCounts(
+  session: SessionUser,
+  anchor: number
+): Promise<{ toPack: number; toReview: number; deliveredThisWeek: number }> {
+  const week = windowsFor(anchor, 7).current;
+  const [row] = await getDb()
+    .select({
+      toPack: sql<number>`coalesce(sum(case when ${orders.status} = 'รอแพ็ก' then 1 else 0 end), 0)`.as("to_pack"),
+      toReview: sql<number>`coalesce(sum(case when ${orders.status} = 'ตรวจสอบ' then 1 else 0 end), 0)`.as("to_review"),
+      deliveredThisWeek: sql<number>`coalesce(sum(case when ${orders.status} = 'จัดส่งแล้ว' and ${orders.placedAt} >= ${new Date(week.from).toISOString()} then 1 else 0 end), 0)`.as("delivered_this_week"),
+    })
+    .from(orders)
+    .where(and(eq(orders.shopId, session.shopId), lte(orders.placedAt, new Date(anchor).toISOString())));
+  return {
+    toPack: Number(row?.toPack ?? 0),
+    toReview: Number(row?.toReview ?? 0),
+    deliveredThisWeek: Number(row?.deliveredThisWeek ?? 0),
   };
 }
 

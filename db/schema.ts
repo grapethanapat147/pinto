@@ -200,6 +200,28 @@ export const actions = sqliteTable(
   (table) => [index("actions_shop_resolved").on(table.shopId, table.resolvedAt)]
 );
 
+/**
+ * What the shop paid each ad platform, per day (PIN-0027).
+ *
+ * Source data, not a derivation: nothing else in Pinto knows what was spent, so it has to be
+ * stored — but at the grain it actually happens, a day per channel. "Ads this week" is then a
+ * SUM over a window rather than another figure typed into `dashboard_metrics`, which is the
+ * spec's rule for everything that can be computed.
+ *
+ * `day` is a Bangkok calendar date, `YYYY-MM-DD`, because spend is reported per day.
+ */
+export const adSpendDaily = sqliteTable(
+  "ad_spend_daily",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    shopId: integer("shop_id").notNull().references(() => shops.id),
+    channelId: integer("channel_id").notNull().references(() => channels.id),
+    day: text("day").notNull(),
+    spendSatang: integer("spend_satang").notNull(),
+  },
+  (table) => [unique("ad_spend_daily_key").on(table.shopId, table.channelId, table.day)]
+);
+
 /** ROAS is absent on purpose: it is exactly revenue/spend for every fixture row. */
 export const campaigns = sqliteTable(
   "campaigns",
@@ -250,7 +272,11 @@ export const dashboardMetrics = sqliteTable(
     shopId: integer("shop_id").notNull().references(() => shops.id),
     /** Which screen the tile belongs to: "today" | "orders" | "stock" | "inbox" | "growth" | "money". */
     scope: text("scope").notNull(),
-    /** Period selector on the Today view: "today" | "7d" | "30d"; null when not period-bound. */
+    /**
+     * Period selector on the Today view: "today" | "7d" | "30d"; null when not period-bound.
+     * @deprecated PIN-0027 — period rows are no longer read; the Today card is computed from
+     * orders in `db/performance.ts`. Left in place rather than dropped (spec Q3).
+     */
     period: text("period"),
     metricKey: text("metric_key").notNull(),
     label: text("label").notNull(),
@@ -264,6 +290,7 @@ export const dashboardMetrics = sqliteTable(
   (table) => [unique("dashboard_metrics_key").on(table.shopId, table.scope, table.period, table.metricKey)]
 );
 
+/** @deprecated PIN-0027 — no longer read; the channel table is computed from orders in `db/performance.ts`. */
 export const channelMetrics = sqliteTable(
   "channel_metrics",
   {
@@ -296,7 +323,10 @@ export const regions = sqliteTable("regions", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
-/** The Money view's profit waterfall: sales, minus costs, down to profit. */
+/**
+ * The Money view's profit waterfall: sales, minus costs, down to profit.
+ * @deprecated PIN-0027 — no longer read; the waterfall is computed from orders in `db/queries.ts`.
+ */
 export const waterfallSteps = sqliteTable("waterfall_steps", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   shopId: integer("shop_id").notNull().references(() => shops.id),

@@ -417,18 +417,10 @@ test("renders empty states rather than crashing on an empty database", async () 
 test("serves the dashboard metrics from D1 rather than JSX literals", async () => {
   const html = await (await render()).text();
 
-  // period figures for the default "วันนี้" selector
-  assert.match(html, /฿48,720/, "profit");
-  assert.match(html, /฿126,840/, "sales");
-  assert.match(html, /284/, "order count");
+  // The period figures and channel table are computed from orders since PIN-0027 — see
+  // "today's figures are computed from orders" below. What is still a seeded row:
 
-  // channel table, with margin derived from profit/sales
-  assert.match(html, /฿68,420/);
-  assert.match(html, /36\.4%/, "24930/68420 derived");
-  assert.match(html, /43\.4%/, "7050/16240 derived");
-
-  // quick-work notes and the pending-payout tile
-  assert.match(html, /47 รายการรอแพ็ก/);
+  // the pending-payout tile
   assert.match(html, /฿73,290/);
 
   // the payout rail reads the payouts table rather than restating it
@@ -553,8 +545,9 @@ test("scopes every read to the session's own shop", async () => {
     await db.prepare("INSERT INTO channels (id,shop_id,code,display_name,kind) VALUES (99,2,'tiktok','TikTok Shop','marketplace')").bind().run();
     await db
       .prepare(
-        "INSERT INTO orders (id,shop_id,channel_id,external_id,customer_name,total_satang,status,placed_at) " +
-          "VALUES (999,2,99,'OTHER-SHOP-ORDER','ลูกค้าร้านอื่น',100000,'รอแพ็ก','2026-09-09T03:00:00.000Z')"
+        // no explicit id: the seed's generated history owns a large id range
+        "INSERT INTO orders (shop_id,channel_id,external_id,customer_name,total_satang,status,placed_at) " +
+          "VALUES (2,99,'OTHER-SHOP-ORDER','ลูกค้าร้านอื่น',100000,'รอแพ็ก','2026-09-09T03:00:00.000Z')"
       )
       .bind()
       .run();
@@ -669,6 +662,210 @@ test("each line snapshots its product's cost, and uncosted stays null rather tha
   assert.equal(zero.n, 0, "an uncosted product must be null, never 0");
 });
 
+/**
+ * PIN-0027: sales, ads and profit are computed from orders, up to the last sync.
+ *
+ * The expected figures are worked out here in plain SQL, independently of `db/performance.ts`,
+ * so a mistake in the app's window arithmetic cannot also be in the expectation.
+ */
+const ownerSession = { userId: 1, shopId: 1, role: "owner", displayName: "ทดสอบ", pictureUrl: null };
+/** React puts `<!-- -->` between literal text and an interpolation. */
+const stripComments = (html) => html.replace(/<!--.*?-->/g, "");
+const baht = (satang) => `฿${Math.round(satang / 100).toLocaleString("en-US")}`;
+
+/** Bangkok midnight of an instant, computed differently from the app: via the +07:00 date string. */
+function bangkokMidnight(instant) {
+  const day = new Date(instant + 7 * 3600_000).toISOString().slice(0, 10);
+  return Date.parse(`${day}T00:00:00+07:00`);
+}
+
+async function independentDay(db, from, to) {
+  const window = [new Date(from).toISOString(), new Date(to).toISOString()];
+  const orders = await db
+    .prepare("SELECT COUNT(*) AS n, COALESCE(SUM(total_satang), 0) AS sales FROM orders WHERE shop_id = 1 AND placed_at >= ? AND placed_at <= ?")
+    .bind(...window)
+    .first();
+  const lines = await db
+    .prepare(
+      "SELECT COALESCE(SUM(l.quantity * l.unit_cost_satang), 0) AS cogs, " +
+        "COALESCE(SUM(CASE WHEN l.unit_cost_satang IS NOT NULL THEN l.quantity * l.unit_price_satang END), 0) AS costed " +
+        "FROM order_lines l JOIN orders o ON o.id = l.order_id WHERE o.shop_id = 1 AND o.placed_at >= ? AND o.placed_at <= ?"
+    )
+    .bind(...window)
+    .first();
+  return { orders: orders.n, sales: orders.sales, cogs: lines.cogs, costed: lines.costed };
+}
+
+test("today's figures are computed from orders, up to the last sync", async () => {
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+  const { at } = await db.prepare("SELECT MAX(last_synced_at) AS at FROM channel_health WHERE shop_id = 1").bind().first();
+  const anchor = Date.parse(at);
+  const today = await independentDay(db, bangkokMidnight(anchor), anchor);
+  const bangkokToday = new Date(anchor + 7 * 3600_000).toISOString().slice(0, 10);
+  const { ads } = await db
+    .prepare("SELECT COALESCE(SUM(spend_satang), 0) AS ads FROM ad_spend_daily WHERE shop_id = 1 AND day = ?")
+    .bind(bangkokToday)
+    .first();
+  assert.ok(today.orders > 50, `the seed should make a busy day, got ${today.orders} orders`);
+  assert.ok(ads > 0, "and spend on ads for it");
+
+  const { listDashboardMetrics } = await import("../db/queries.ts");
+  const metrics = await listDashboardMetrics(ownerSession);
+  const figures = metrics.periods["วันนี้"];
+
+  assert.equal(figures.orders, today.orders.toLocaleString("en-US"));
+  assert.equal(figures.sales, baht(today.sales));
+  assert.equal(figures.ads, baht(ads));
+  assert.equal(figures.profit, baht(today.sales - today.cogs - ads), "profit = sales − known cost of goods − ads");
+
+  // the anchor is shown, not a literal 10:42
+  const expectedTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(anchor));
+  assert.equal(metrics.asOf.time, expectedTime);
+
+  // and it reaches the page
+  const html = stripComments(await (await render()).text());
+  assert.match(html, new RegExp(figures.profit.replace("$", "\\$")), "today's profit on the card");
+  assert.match(html, new RegExp(`อัปเดตล่าสุด ${expectedTime} น\\.`), "the sync time on the card");
+  assert.doesNotMatch(html, /10:42 น\./, "the old literal update time must be gone");
+});
+
+test("the channel table and the waterfall add up to the Today card", async () => {
+  const { loadPerformance, profitOf } = await import("../db/performance.ts");
+  const performance = await loadPerformance(ownerSession);
+  const today = performance.periods["วันนี้"].current;
+
+  // In satang, before any rounding for display. Compared with the independent SQL, not with
+  // the app's own day total — that total is itself the sum of the channels, so checking one
+  // against the other could never fail.
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+  const day = await independentDay(db, bangkokMidnight(performance.anchor.getTime()), performance.anchor.getTime());
+  const channels = [...performance.channels.values()];
+  const sumOf = (field) => channels.reduce((total, row) => total + row[field], 0);
+  assert.equal(sumOf("orders"), day.orders, "channels' orders must sum to the day's");
+  assert.equal(sumOf("salesSatang"), day.sales, "channels' sales must sum to the day's");
+  assert.equal(sumOf("cogsSatang"), day.cogs, "channels' cost of goods must sum to the day's");
+  assert.equal(sumOf("costedSalesSatang"), day.costed, "channels' costed sales must sum to the day's");
+  assert.equal(sumOf("adsSatang"), today.adsSatang);
+  assert.ok(channels.length >= 3, "every selling channel has orders today");
+
+  const { listDashboardMetrics } = await import("../db/queries.ts");
+  const metrics = await listDashboardMetrics(ownerSession);
+  assert.deepEqual(
+    metrics.waterfall.map((step) => step.kind),
+    ["sales", "cost", "ads", "profit"],
+    "fees are not shown as a figure while nothing supplies them"
+  );
+  // sales − cost − ads lands exactly on profit
+  assert.equal(today.salesSatang - today.cogsSatang - today.adsSatang, profitOf(today));
+  // bars are to scale: cost's bar against sales' bar is cost against sales
+  const [sales, cost] = metrics.waterfall;
+  assert.ok(
+    Math.abs(cost.height / sales.height - today.cogsSatang / today.salesSatang) < 0.02,
+    `cost bar ${cost.height}% vs sales bar ${sales.height}% should match ${today.cogsSatang}/${today.salesSatang}`
+  );
+});
+
+test("today is compared with yesterday up to the same minute, not with all of yesterday", async () => {
+  const { windowsFor, adShare, bangkokDayStart } = await import("../db/performance.ts");
+
+  // 12:10 in Bangkok on 6 Oct
+  const anchor = Date.parse("2026-10-06T12:10:00+07:00");
+  const { current, previous } = windowsFor(anchor, 1);
+  assert.equal(new Date(current.from).toISOString(), "2026-10-05T17:00:00.000Z", "today starts at Bangkok midnight");
+  assert.equal(new Date(previous.from).toISOString(), "2026-10-04T17:00:00.000Z");
+  assert.equal(new Date(previous.to).toISOString(), "2026-10-05T05:10:00.000Z", "yesterday ends at 12:10 too");
+
+  // 00:30 in Bangkok is still the previous day in UTC — the day must be Bangkok's
+  assert.equal(new Date(bangkokDayStart(Date.parse("2026-10-06T00:30:00+07:00"))).toISOString(), "2026-10-05T17:00:00.000Z");
+
+  // 30 days back to back, and seven
+  const month = windowsFor(anchor, 30);
+  assert.equal(month.previous.to, anchor - 30 * 86_400_000, "same time of day, one period earlier");
+  assert.equal(month.current.from - month.previous.from, 30 * 86_400_000);
+
+  // today's ad row is spend-to-date, so all of it is in today; yesterday's row is a whole day
+  // and only the hours up to 12:10 belong in the comparison
+  assert.equal(adShare("2026-10-06", anchor, current), 1);
+  assert.equal(adShare("2026-10-05", anchor, current), 0);
+  assert.ok(Math.abs(adShare("2026-10-05", anchor, previous) - (12 * 60 + 10) / 1440) < 1e-9);
+});
+
+test("windows end at the last sync, and say so when that was not today", async () => {
+  const seeded = globalThis.__PINTO_TEST_ENV__;
+  const db = createTestD1();
+  globalThis.__PINTO_TEST_ENV__ = { DB: db };
+  try {
+    const { listDashboardMetrics } = await import("../db/queries.ts");
+    const before = await listDashboardMetrics(ownerSession);
+
+    // an order placed after the last sync has not been fetched, so it must not count
+    const { at } = await db.prepare("SELECT MAX(last_synced_at) AS at FROM channel_health").bind().first();
+    const later = new Date(Date.parse(at) + 60_000).toISOString();
+    await db
+      .prepare("INSERT INTO orders (shop_id,channel_id,external_id,customer_name,total_satang,status,placed_at) VALUES (1,1,'AFTER-SYNC','ทดสอบ',5000000,'รอแพ็ก',?)")
+      .bind(later)
+      .run();
+    const after = await listDashboardMetrics(ownerSession);
+    assert.equal(after.periods["วันนี้"].sales, before.periods["วันนี้"].sales, "an order after the anchor is outside the window");
+
+    // a demo seeded days ago keeps its figures, and stops calling them today's
+    await db.prepare("UPDATE channel_health SET last_synced_at = datetime(last_synced_at, '-3 days')").bind().run();
+    await db.prepare("UPDATE channel_health SET last_synced_at = strftime('%Y-%m-%dT%H:%M:%fZ', last_synced_at)").bind().run();
+    const stale = await listDashboardMetrics(ownerSession);
+    assert.equal(stale.asOf.isToday, false);
+    assert.ok(Number(stale.periods["วันนี้"].orders.replace(/,/g, "")) > 50, "the anchor day still has its orders");
+    const html = stripComments(await (await render("/", { cookie: await signIn() })).text());
+    assert.match(html, new RegExp(`ข้อมูลถึง ${stale.asOf.day} ${stale.asOf.time} น\\.`), "the card names the day");
+    assert.match(html, new RegExp(`กำไร${stale.asOf.day}`), "and the heading does not say วันนี้");
+    assert.doesNotMatch(html, /กำไรวันนี้/);
+  } finally {
+    globalThis.__PINTO_TEST_ENV__ = seeded;
+  }
+});
+
+test("partial cost coverage is always labelled, and full coverage never is", async () => {
+  const { listDashboardMetrics } = await import("../db/queries.ts");
+  const partial = (await listDashboardMetrics(ownerSession)).periods["วันนี้"];
+  assert.equal(partial.partial, true, "one product is uncosted in the seed");
+  const db = globalThis.__PINTO_TEST_ENV__.DB;
+  const anchor = Date.parse((await db.prepare("SELECT MAX(last_synced_at) AS at FROM channel_health").bind().first()).at);
+  const today = await independentDay(db, bangkokMidnight(anchor), anchor);
+  assert.equal(partial.coverage, `${Math.floor((today.costed / today.sales) * 1000) / 10}%`);
+  assert.match(stripComments(await (await render()).text()), new RegExp(`ต้นทุนครบ ${partial.coverage.replace(".", "\\.")} ของยอดขาย`));
+
+  const seeded = globalThis.__PINTO_TEST_ENV__;
+  const fresh = createTestD1();
+  globalThis.__PINTO_TEST_ENV__ = { DB: fresh };
+  try {
+    // cost the last product, and backfill its lines' snapshots the way a correction would
+    await fresh.prepare("UPDATE products SET unit_cost_satang = 24000 WHERE unit_cost_satang IS NULL").bind().run();
+    await fresh.prepare("UPDATE order_lines SET unit_cost_satang = 24000 WHERE unit_cost_satang IS NULL").bind().run();
+    const full = await listDashboardMetrics(ownerSession);
+    assert.equal(full.periods["วันนี้"].partial, false);
+    assert.equal(full.periods["วันนี้"].coverage, "100%");
+    assert.deepEqual(full.uncosted, []);
+    const html = stripComments(await (await render("/", { cookie: await signIn() })).text());
+    assert.doesNotMatch(html, /ต้นทุนครบ [\d.]+% ของยอดขาย/, "no partial warning on a fully costed catalogue");
+    assert.match(html, /ยังไม่รวมค่าธรรมเนียมและค่าส่ง/, "fees are still named as missing");
+  } finally {
+    globalThis.__PINTO_TEST_ENV__ = seeded;
+  }
+});
+
+test("the order list is bounded, and says how many it is not showing", async () => {
+  const { listOrders, countOrders, ORDER_LIST_LIMIT } = await import("../db/queries.ts");
+  const shown = await listOrders(ownerSession);
+  const total = await countOrders(ownerSession);
+  assert.equal(shown.length, ORDER_LIST_LIMIT);
+  assert.ok(total > 10 * ORDER_LIST_LIMIT, `sixty days of history, got ${total}`);
+  assert.equal(shown[0].id, "TT-10842", "newest first, and the hand-made orders are the newest");
+
+  // the payload carries the page, not the history
+  const html = await (await render()).text();
+  const ids = new Set(html.match(/(?:TT|SP|LN)-\d{5}/g));
+  assert.ok(ids.size <= ORDER_LIST_LIMIT + 10, `${ids.size} order ids reached the client`);
+});
+
 test("staff never receive finance data, owners do", async () => {
   const ownerHtml = await (await render("/", { cookie: await signIn("owner") })).text();
   const staffHtml = await (await render("/", { cookie: await signIn("staff") })).text();
@@ -679,13 +876,21 @@ test("staff never receive finance data, owners do", async () => {
 
   // the real enforcement: the numbers are absent from the payload, not merely unrendered,
   // because AppShell is a client component and anything sent to it is readable
-  for (const secret of [/฿38,740/, /฿24,680/, /฿126\.8k/]) {
+  // The waterfall's figures are computed now (PIN-0027), so read them rather than pin them.
+  const { listDashboardMetrics } = await import("../db/queries.ts");
+  const owner = await listDashboardMetrics({ userId: 1, shopId: 1, role: "owner", displayName: "ทดสอบ", pictureUrl: null });
+  const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const waterfallSales = new RegExp(escape(owner.waterfall[0].amount));
+
+  for (const secret of [/฿38,740/, /฿24,680/, waterfallSales]) {
     assert.match(ownerHtml, secret, "owner should see finance figures");
     assert.doesNotMatch(staffHtml, secret, "finance figures must not reach staff at all");
   }
 
-  // performance data is deliberately kept for both — stripping it would gut the dashboard
-  for (const shared of [/TT-10842/, /฿48,720/]) {
+  // performance data is deliberately kept for both — stripping it would gut the dashboard.
+  // That includes today's profit: PIN-0013 drew the line at money movement, not performance.
+  const todayProfit = new RegExp(escape(owner.periods["วันนี้"].profit));
+  for (const shared of [/TT-10842/, todayProfit]) {
     assert.match(ownerHtml, shared);
     assert.match(staffHtml, shared);
   }

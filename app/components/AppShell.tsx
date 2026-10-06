@@ -35,6 +35,7 @@ import type {
 
 export function AppShell({
   orders,
+  orderTotal,
   inventory,
   actions: actionItems,
   conversations,
@@ -50,6 +51,8 @@ export function AppShell({
   connections,
 }: {
   orders: Order[];
+  /** All of the shop's orders; `orders` is only the newest of them. */
+  orderTotal: number;
   inventory: InventoryItem[];
   actions: ShopAction[];
   conversations: Conversation[];
@@ -155,7 +158,7 @@ export function AppShell({
               notify={notify}
             />
           )}
-          {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} tiles={metrics.tiles.orders ?? []} notify={notify} />}
+          {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} shown={orders.length} total={orderTotal} tiles={metrics.tiles.orders ?? []} notify={notify} />}
           {view === "inbox" && <InboxView conversations={conversations} tiles={metrics.tiles.inbox ?? []} notify={notify} />}
           {view === "stock" && <StockView inventory={inventory} metrics={metrics} channelSync={channelSync} recommendation={recommendations.stock} notify={notify} />}
           {view === "growth" && <GrowthView campaigns={campaigns} metrics={metrics} recommendation={recommendations.growth} notify={notify} />}

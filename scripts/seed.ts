@@ -15,6 +15,7 @@ import { campaigns } from "../app/fixtures/campaigns.ts";
 import { conversations } from "../app/fixtures/conversations.ts";
 import { inventory } from "../app/fixtures/inventory.ts";
 import { orderLines, productCosts } from "../app/fixtures/order-lines.ts";
+import { adSpendFor, generateHistory } from "./generate-history.ts";
 import { orders } from "../app/fixtures/orders.ts";
 import { payouts } from "../app/fixtures/payouts.ts";
 import {
@@ -45,19 +46,42 @@ function impactKind(display: string): string {
 const SEED_AT = new Date();
 const minutesAgo = (n: number) => new Date(SEED_AT.getTime() - n * 60_000).toISOString();
 
-/** Day 0 is the seed date; `hhmm` is a wall-clock time on that day. */
+/**
+ * Every date the seed writes is on the Bangkok clock, explicitly.
+ *
+ * These used `setHours` and `toISOString().slice(0, 10)`, i.e. the machine's zone for times
+ * and UTC for dates. On a machine set to Bangkok, before 07:00 those two disagree about which
+ * day it is — harmless while the figures were constants, wrong once ad spend is keyed by
+ * day and joined to orders by day (PIN-0027). Thailand has no daylight saving, so a fixed
+ * +07:00 is exact.
+ */
+const BANGKOK_OFFSET_MS = 7 * 60 * 60_000;
+const DAY_MS = 24 * 60 * 60_000;
+const BANGKOK_MIDNIGHT = Math.floor((SEED_AT.getTime() + BANGKOK_OFFSET_MS) / DAY_MS) * DAY_MS - BANGKOK_OFFSET_MS;
+/** Minutes since Bangkok midnight at the moment the seed runs. */
+const MINUTES_INTO_DAY = Math.floor((SEED_AT.getTime() - BANGKOK_MIDNIGHT) / 60_000);
+
+/** Day 0 is the seed date; `hhmm` is a Bangkok wall-clock time on that day. */
 function at(hhmm: string, dayOffset = 0): string {
   const [h, m] = hhmm.split(":").map(Number);
-  const d = new Date(SEED_AT);
-  d.setDate(d.getDate() + dayOffset);
-  d.setHours(h, m, 0, 0);
-  return d.toISOString();
+  return new Date(BANGKOK_MIDNIGHT + dayOffset * DAY_MS + (h * 60 + m) * 60_000).toISOString();
 }
 
+/** The Bangkok calendar date, `dayOffset` days from the seed date. */
 function dateOnly(dayOffset: number): string {
-  const d = new Date(SEED_AT);
-  d.setDate(d.getDate() + dayOffset);
-  return d.toISOString().slice(0, 10);
+  return new Date(BANGKOK_MIDNIGHT + BANGKOK_OFFSET_MS + dayOffset * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * The hand-made orders keep their spacing but end just before the seed runs.
+ *
+ * Their fixture times (09:33–10:36) were written beside an "อัปเดตล่าสุด 10:42" label. Pinned
+ * to those clock times, seeding at 08:00 put them in the future — after the last sync, so
+ * outside every reporting window — while the generated history stopped short of them.
+ */
+function beforeSeed(hhmm: string): string {
+  const [h, m] = hhmm.split(":").map(Number);
+  return minutesAgo(10 * 60 + 42 - (h * 60 + m));
 }
 
 /** "อัปเดต 10:38 น." -> "10:38" */
@@ -127,7 +151,7 @@ const insert = (table: string, cols: string[], rows: (string | number | null)[][
 // Idempotent: wipe in FK-safe order, then reinsert. Only ever touches seeded tables.
 out.push("PRAGMA defer_foreign_keys = ON;");
 for (const t of [
-  "messages", "conversations", "order_lines", "orders", "inventory_levels", "products",
+  "messages", "conversations", "order_lines", "orders", "ad_spend_daily", "inventory_levels", "products",
   "actions", "campaigns", "payouts",
   // presentation scaffolding (schema-v1 Q1c)
   "dashboard_metrics", "channel_metrics", "customer_segments", "regions",
@@ -173,7 +197,7 @@ insert(
   "orders",
   ["id", "shop_id", "channel_id", "external_id", "customer_name", "total_satang", "status", "placed_at"],
   orders.map((o, i) => [
-    i + 1, 1, channelId(o.channel), o.id, o.customer, satang(o.total), o.status, at(o.time),
+    i + 1, 1, channelId(o.channel), o.id, o.customer, satang(o.total), o.status, beforeSeed(o.time),
   ])
 );
 
@@ -208,6 +232,77 @@ const productIdBySkuForLines = new Map(inventory.map((item, i) => [item.sku, i +
     "order_lines",
     ["id", "shop_id", "order_id", "product_id", "quantity", "unit_price_satang", "unit_cost_satang"],
     rows
+  );
+}
+
+// Sixty days of generated history (PIN-0027), around the six hand-made orders above. See
+// `scripts/generate-history.ts` for why, and why it is deterministic.
+{
+  const { orders: history } = generateHistory({
+    seedAt: SEED_AT,
+    minutesNow: MINUTES_INTO_DAY,
+    reservedToday: orders.length,
+  });
+
+  const hhmm = (minute: number) =>
+    `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+  const channelIdByCode: Record<string, number> = {
+    tiktok: channelId("TikTok Shop"),
+    shopee: channelId("Shopee"),
+    line: channelId("LINE MyShop"),
+  };
+
+  const orderRows: (string | number | null)[][] = [];
+  const lineRows: (string | number | null)[][] = [];
+  const salesByDayAndChannel = new Map<string, number>();
+  let orderId = orders.length + 1;
+  let lineId = 1_000_000; // well clear of the hand-made lines
+
+  for (const order of history) {
+    let total = 0;
+    for (const line of order.lines) {
+      const { price, cost } = costOf(line.sku);
+      total += money(price) * line.quantity;
+      lineRows.push([
+        lineId++, 1, orderId, productIdBySkuForLines.get(line.sku)!, line.quantity,
+        money(price), cost === null ? null : money(cost),
+      ]);
+    }
+    // `at` is the same clock the hand-made orders use, so "today" means one thing.
+    orderRows.push([
+      orderId++, 1, channelIdByCode[order.channel], order.externalId, order.customer,
+      total, order.status, at(hhmm(order.minute), -order.dayOffset),
+    ]);
+    const key = `${order.dayOffset}:${order.channel}`;
+    salesByDayAndChannel.set(key, (salesByDayAndChannel.get(key) ?? 0) + total / 100);
+  }
+
+  // Thousands of rows: chunk the INSERTs so no single statement is unreasonably large.
+  const CHUNK = 500;
+  for (let i = 0; i < orderRows.length; i += CHUNK) {
+    insert(
+      "orders",
+      ["id", "shop_id", "channel_id", "external_id", "customer_name", "total_satang", "status", "placed_at"],
+      orderRows.slice(i, i + CHUNK)
+    );
+  }
+  for (let i = 0; i < lineRows.length; i += CHUNK) {
+    insert(
+      "order_lines",
+      ["id", "shop_id", "order_id", "product_id", "quantity", "unit_price_satang", "unit_cost_satang"],
+      lineRows.slice(i, i + CHUNK)
+    );
+  }
+
+  // Ad spend per day per channel, from each day's priced sales.
+  const dayOffsets = [...new Set(history.map((order) => order.dayOffset))];
+  const adDays = adSpendFor(salesByDayAndChannel, dayOffsets);
+  insert(
+    "ad_spend_daily",
+    ["id", "shop_id", "channel_id", "day", "spend_satang"],
+    adDays.map((ad, i) => [
+      i + 1, 1, channelIdByCode[ad.channel], dateOnly(-ad.dayOffset), money(ad.spendBaht),
+    ])
   );
 }
 

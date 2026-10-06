@@ -10,7 +10,7 @@ import {
   listChannelSync,
   listDashboardMetrics,
   listInventory,
-  listOrders,
+  countOrders, listOrders,
   listPayouts,
   listRecommendations,
   listChannelConnections,
@@ -37,10 +37,11 @@ async function loadDashboard() {
     // component, and anything sent to it is readable however the nav is drawn.
     const canSeeFinance = session.role === "owner";
 
-    const [shop, orders, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations, channelSync, connections] =
+    const [shop, orders, orderTotal, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations, channelSync, connections] =
       await Promise.all([
         shopName(session),
         listOrders(session),
+        countOrders(session),
         listInventory(session),
         listActions(session),
         listConversations(session),
@@ -66,6 +67,7 @@ async function loadDashboard() {
       shopName: shop,
       role: session.role,
       orders,
+      orderTotal,
       inventory,
       actions,
       conversations,
@@ -100,6 +102,7 @@ export default async function Page() {
   return (
     <AppShell
       orders={data.orders}
+      orderTotal={data.orderTotal}
       inventory={data.inventory}
       actions={data.actions}
       conversations={data.conversations}

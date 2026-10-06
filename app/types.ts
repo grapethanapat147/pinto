@@ -106,16 +106,54 @@ export type MetricTile = {
   trend?: "up" | "down" | "warning";
 };
 
-export type PeriodFigures = { profit: string; sales: string; ads: string; orders: string; change: string };
+export type Trend = "up" | "down" | "flat";
+
+/**
+ * One period on the Today card (PIN-0027), computed from orders rather than stored.
+ *
+ * Each `*Change` compares with the same span one period earlier, ending at the same time of
+ * day. `coverage` is the share of the period's revenue whose cost is known; when `partial`,
+ * profit is an upper bound and the screen says so.
+ */
+export type PeriodFigures = {
+  profit: string;
+  sales: string;
+  ads: string;
+  orders: string;
+  change: string;
+  changeTrend: Trend;
+  salesChange: string;
+  salesTrend: Trend;
+  ordersChange: string;
+  ordersTrend: Trend;
+  coverage: string;
+  partial: boolean;
+};
+
+/** When the figures are from: the last sync, which every window ends at. */
+export type AsOf = {
+  /** "14:32" */
+  time: string;
+  /** "6 ต.ค." */
+  day: string;
+  /** False when the last sync was on an earlier day — "วันนี้" must then name the day. */
+  isToday: boolean;
+  /** False when no channel has ever synced; the figures then run to the clock. */
+  synced: boolean;
+};
 export type ChannelRow = { channel: string; code: string; sales: string; orders: string; profit: string; margin: string };
 export type SegmentRow = { key: string; label: string; count: string; note: string };
 export type RegionRow = { name: string; value: string; width: number };
-export type WaterfallRow = { label: string; amount: string; kind: string };
+/** `height` is the bar as a percentage of the chart, proportional to sales (PIN-0027). */
+export type WaterfallRow = { label: string; amount: string; kind: string; height: number };
 export type RestockRow = { name: string; quantity: string };
 export type OpportunityRow = { name: string; metric: string; profit: string; accent: string };
 
 export type DashboardMetrics = {
+  asOf: AsOf;
   periods: Record<string, PeriodFigures>;
+  /** Products with no cost yet, by name — what a partial profit figure is missing. */
+  uncosted: string[];
   tiles: Record<string, MetricTile[]>;
   channels: ChannelRow[];
   segments: SegmentRow[];

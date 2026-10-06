@@ -64,7 +64,7 @@ function migrate(dbPath) {
 }
 
 function seed(dbPath) {
-  const sql = execFileSync("node", [join(root, "scripts/seed.ts")], { encoding: "utf8" });
+  const sql = execFileSync("node", [join(root, "scripts/seed.ts")], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   sqlite(dbPath, sql);
 }
 

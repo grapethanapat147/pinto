@@ -11,13 +11,15 @@
  * the state a merchant is actually in on their first day.
  */
 
-/** Baht. `null` means not costed yet — distinct from zero, and must stay distinct. */
+/** Baht. `null` means not costed yet — distinct from zero, and must stay distinct.
+ *  Costs sit near 55% of price: at 35–40% the demo showed a 54% net margin, which no
+ *  marketplace home-goods reseller has (PIN-0027). */
 export const productCosts: Record<string, { price: number; cost: number | null }> = {
-  "ML-CV-018": { price: 450, cost: 170 }, // แจกันเซรามิกสีครีม
-  "ML-CL-006": { price: 1100, cost: 430 }, // โคมไฟ Cloud
-  "ML-AG-024": { price: 640, cost: 250 }, // ชุดแก้ว Amber 4 ใบ
+  "ML-CV-018": { price: 450, cost: 250 }, // แจกันเซรามิกสีครีม
+  "ML-CL-006": { price: 1100, cost: 600 }, // โคมไฟ Cloud
+  "ML-AG-024": { price: 640, cost: 350 }, // ชุดแก้ว Amber 4 ใบ
   "ML-LN-012": { price: 440, cost: null }, // ผ้าปูโต๊ะ Linen Sand — uncosted on purpose
-  "ML-TR-031": { price: 340, cost: 120 }, // ถาดไม้โค้ง Natural
+  "ML-TR-031": { price: 340, cost: 185 }, // ถาดไม้โค้ง Natural
 };
 
 /** Keyed by the order's external id, as in `orders.ts`. Quantities only; prices come from above. */
