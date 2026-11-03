@@ -7,7 +7,7 @@ import { StatusPill } from "./StatusPill";
 import { trendArrow } from "../format";
 import type { DashboardMetrics, Notify, Payout } from "../types";
 
-export function MoneyView({ payouts, metrics, notify }: { payouts: Payout[]; metrics: DashboardMetrics; notify: Notify }) {
+export function MoneyView({ payouts, metrics, notify, onAddCost }: { payouts: Payout[]; metrics: DashboardMetrics; notify: Notify; onAddCost: () => void }) {
   const tile = (key: string) => metrics.tiles.money?.find((item) => item.key === key);
   const profit = tile("profit");
   const withdrawable = tile("withdrawable");
@@ -33,7 +33,7 @@ export function MoneyView({ payouts, metrics, notify }: { payouts: Payout[]; met
         </article>
         {/* What this profit leaves out, from the data rather than a promise (PIN-0027). */}
         {today.partial ? (
-          <article className="panel money-note"><span className="spark dark"><AlertTriangle size={20} /></span><p>ข้อมูลยังไม่ครบ</p><h3>กำไรนี้ยังสูงกว่าความจริง</h3><p>สินค้า {missing.length} รายการยังไม่มีต้นทุน{missing.length > 0 ? ` (${missing.join(", ")})` : ""} จึงคิดต้นทุนได้ {today.coverage} ของยอดขาย และยังไม่รวมค่าธรรมเนียมกับค่าส่ง ซึ่งจะหักให้เมื่อเชื่อมต่อแพลตฟอร์มจริง</p><button className="quiet-button wide icon-text-button" onClick={() => notify("ตัวอย่าง — การแก้ต้นทุนสินค้ายังไม่เปิดใช้งาน", "demo")}>เพิ่มต้นทุนสินค้า <ArrowRight size={15} /></button></article>
+          <article className="panel money-note"><span className="spark dark"><AlertTriangle size={20} /></span><p>ข้อมูลยังไม่ครบ</p><h3>กำไรนี้ยังสูงกว่าความจริง</h3><p>สินค้า {missing.length} รายการยังไม่มีต้นทุน{missing.length > 0 ? ` (${missing.join(", ")})` : ""} จึงคิดต้นทุนได้ {today.coverage} ของยอดขาย และยังไม่รวมค่าธรรมเนียมกับค่าส่ง ซึ่งจะหักให้เมื่อเชื่อมต่อแพลตฟอร์มจริง</p><button className="quiet-button wide icon-text-button" onClick={onAddCost}>เพิ่มต้นทุนสินค้า <ArrowRight size={15} /></button></article>
         ) : (
           <article className="panel money-note"><span className="spark dark"><Check size={20} /></span><p>ต้นทุนครบทุกรายการ</p><h3>กำไรนี้คิดจากต้นทุนจริง</h3><p>ยังไม่รวมค่าธรรมเนียมกับค่าส่ง ซึ่งจะหักให้เมื่อเชื่อมต่อแพลตฟอร์มจริง</p></article>
         )}

@@ -1096,6 +1096,104 @@ test("ad spend unusually high for its sales raises a card for the owner", async 
   });
 });
 
+/**
+ * PIN-0028: cost per unit, edited on Stock by the owner. A cost change reaches future lines
+ * only; the one exception is a product's first cost filling the past lines that had none.
+ */
+async function postCost(sku, body, as = "owner") {
+  return fetchWorker(`/api/products/${sku}/cost`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(as ? { cookie: await signIn(as) } : {}) },
+    body: JSON.stringify(body),
+  });
+}
+
+const costsOf = async (db, sku) =>
+  (await db
+    .prepare("SELECT l.unit_cost_satang AS cost, COUNT(*) AS n FROM order_lines l JOIN products p ON p.id = l.product_id WHERE p.sku = ? GROUP BY 1 ORDER BY 1")
+    .bind(sku)
+    .all()).results.map((row) => ({ cost: row.cost, n: row.n }));
+
+test("cost reaches the owner's payload and never staff's", async () => {
+  await withFreshDb(async () => {
+    const owner = await (await render("/", { cookie: await signIn("owner") })).text();
+    const staff = await (await render("/", { cookie: await signIn("staff") })).text();
+    assert.match(owner, /unitCostSatang/, "the owner's inventory carries cost");
+    assert.doesNotMatch(staff, /unitCostSatang|uncostedLines/, "staff's carries none at all");
+  });
+});
+
+test("the cost route refuses everyone but the owner, and anything that is not a cost", async () => {
+  await withFreshDb(async (db) => {
+    const before = JSON.stringify((await db.prepare("SELECT sku, unit_cost_satang FROM products ORDER BY id").bind().all()).results);
+
+    assert.equal((await postCost("ML-LN-012", { cost: "240" }, null)).status, 401, "no session");
+    const staff = await postCost("ML-LN-012", { cost: "240" }, "staff");
+    assert.equal(staff.status, 403, "staff, refused on the server");
+
+    for (const cost of ["-5", "abc", "1e3", "1.234", "250,00", "0", 0, "2000000", null, ""]) {
+      const response = await postCost("ML-LN-012", { cost });
+      assert.equal(response.status, 400, `${JSON.stringify(cost)} should be refused`);
+      assert.ok((await response.json()).error, "with a message");
+    }
+    assert.equal((await postCost("ML-LN-012", { cost: "240", fillPast: "yes" })).status, 400, "fillPast must be a boolean");
+    assert.equal((await postCost("ML-XX-999", { cost: "240" })).status, 404, "unknown SKU");
+    assert.equal((await postCost("bad%20sku", { cost: "240" })).status, 400, "malformed SKU");
+
+    const after = JSON.stringify((await db.prepare("SELECT sku, unit_cost_satang FROM products ORDER BY id").bind().all()).results);
+    assert.equal(after, before, "no refused request changed a cost");
+  });
+});
+
+test("changing a cost changes future lines only — existing lines keep their snapshot", async () => {
+  await withFreshDb(async (db) => {
+    const lines = await costsOf(db, "ML-CV-018");
+    assert.deepEqual(lines.map((row) => row.cost), [25000], "every vase line was recorded at ฿250");
+
+    const response = await postCost("ML-CV-018", { cost: "300.50" });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { saved: true, unitCostSatang: 30050, filled: 0 });
+
+    const { cost } = await db.prepare("SELECT unit_cost_satang AS cost FROM products WHERE sku = 'ML-CV-018'").bind().first();
+    assert.equal(cost, 30050, "the product takes the new cost");
+    assert.deepEqual(await costsOf(db, "ML-CV-018"), lines, "no existing line was rewritten");
+
+    // and a product that already has a cost cannot use the one-time fill
+    assert.equal((await postCost("ML-CV-018", { cost: "310", fillPast: true })).status, 409);
+    assert.equal((await db.prepare("SELECT unit_cost_satang AS c FROM products WHERE sku = 'ML-CV-018'").bind().first()).c, 30050);
+  });
+});
+
+test("a product's first cost fills the past lines that had none — once", async () => {
+  await withFreshDb(async (db) => {
+    const [{ n: missing }] = (await costsOf(db, "ML-LN-012")).filter((row) => row.cost === null);
+    assert.ok(missing > 100, "linen is uncosted across its whole history");
+
+    const response = await postCost("ML-LN-012", { cost: 240, fillPast: true });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).filled, missing, "every uncosted line, and only those");
+    assert.deepEqual(await costsOf(db, "ML-LN-012"), [{ cost: 24000, n: missing }]);
+
+    // coverage is now complete, and the brief's missing-cost card clears by itself
+    const { listDashboardMetrics } = await import("../db/queries.ts");
+    const { listBrief } = await import("../db/brief.ts");
+    assert.equal((await listDashboardMetrics(ownerSession)).periods["30 วัน"].coverage, "100%");
+    assert.ok(!(await listBrief(ownerSession)).some((card) => card.key === "cost:missing"));
+
+    // a second fill is refused: the product has a cost now
+    assert.equal((await postCost("ML-LN-012", { cost: 250, fillPast: true })).status, 409);
+  });
+});
+
+test("a first cost without the fill leaves history as it was", async () => {
+  await withFreshDb(async (db) => {
+    const before = await costsOf(db, "ML-LN-012");
+    const response = await postCost("ML-LN-012", { cost: "240" });
+    assert.equal((await response.json()).filled, 0);
+    assert.deepEqual(await costsOf(db, "ML-LN-012"), before, "past lines stay uncosted unless asked");
+  });
+});
+
 test("staff never receive finance data, owners do", async () => {
   const ownerHtml = await (await render("/", { cookie: await signIn("owner") })).text();
   const staffHtml = await (await render("/", { cookie: await signIn("staff") })).text();

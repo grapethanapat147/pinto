@@ -4,13 +4,13 @@
  *
  * Derived values are computed here rather than stored (schema-v1 F2).
  */
-import { and, asc, desc, eq, lte, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lte, ne, sql } from "drizzle-orm";
 
 import { getDb } from "./index";
 import {
   campaigns, channels, conversations, customerSegments,
   inventoryChannelSync,
-  dashboardMetrics, inventoryLevels, messages, orders, payouts, productOpportunities,
+  dashboardMetrics, inventoryLevels, messages, orderLines, orders, payouts, productOpportunities,
   products, recommendations, regions, restockSuggestions, shops,
 } from "./schema";
 import {
@@ -128,6 +128,7 @@ export async function listInventory(session: SessionUser): Promise<InventoryItem
       category: products.category,
       onHand: inventoryLevels.onHand,
       reserved: inventoryLevels.reserved,
+      unitCostSatang: products.unitCostSatang,
     })
     .from(inventoryLevels)
     .innerJoin(products, eq(products.id, inventoryLevels.productId))
@@ -147,6 +148,19 @@ export async function listInventory(session: SessionUser): Promise<InventoryItem
 
   // computed from sales since PIN-0031 — the stored days_left described a smaller shop
   const velocity = await salesVelocity(session, (await loadAnchor(session)).anchor);
+  // cost is owner-only (spec Q5): staff never get the query, let alone the numbers
+  const isOwner = session.role === "owner";
+  const uncostedLines = isOwner
+    ? new Map(
+        (
+          await db
+            .select({ productId: orderLines.productId, n: sql<number>`count(*)`.as("n") })
+            .from(orderLines)
+            .where(and(eq(orderLines.shopId, session.shopId), isNull(orderLines.unitCostSatang)))
+            .groupBy(orderLines.productId)
+        ).map((row) => [row.productId, Number(row.n)])
+      )
+    : null;
   return rows.map((row) => {
     const daysLeft = daysLeftOf(row.onHand, velocity.get(row.productId)?.unitsPerDay);
     return {
@@ -158,6 +172,9 @@ export async function listInventory(session: SessionUser): Promise<InventoryItem
       daysLeft: daysLeft === null ? null : Math.floor(daysLeft),
       sync: syncLabel(syncRows.filter((entry) => entry.productId === row.productId)),
       status: stockStatus(row.onHand, daysLeft),
+      ...(uncostedLines
+        ? { cost: { unitCostSatang: row.unitCostSatang, uncostedLines: uncostedLines.get(row.productId) ?? 0 } }
+        : {}),
     };
   });
 }

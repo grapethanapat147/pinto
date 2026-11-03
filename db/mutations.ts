@@ -6,10 +6,10 @@
  * for an unknown id instead of a misleading 200 — the PIN-0001 rule applied to the
  * backend: never report success for work that did not happen.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { getDb } from "./index";
-import { actionSnoozes, conversations, messages } from "./schema";
+import { actionSnoozes, conversations, messages, orderLines, products } from "./schema";
 
 import type { SessionUser } from "./auth";
 
@@ -46,4 +46,54 @@ export async function addShopMessage(session: SessionUser, conversationId: numbe
   await db.update(conversations).set({ lastMessageAt: sentAt }).where(eq(conversations.id, conversationId));
 
   return true;
+}
+
+/**
+ * Sets a product's cost per unit (PIN-0028). Future order lines snapshot it; existing lines
+ * keep the cost they were recorded with — that is what a snapshot is for.
+ *
+ * `fillPast` is the one exception (spec Q8): when a product gets its **first** cost, the past
+ * lines that had none may take it. Filling a gap is not rewriting history; changing a cost
+ * that was already there would be, so it is refused once the product has one.
+ *
+ * Lines are filled before the product is updated, and only while the product is still
+ * uncosted. If the second write never happens, retrying finds nothing left to fill and sets
+ * the product — no line is ever written twice, and none is left half-filled.
+ */
+export async function setProductCost(
+  session: SessionUser,
+  sku: string,
+  unitCostSatang: number,
+  fillPast: boolean
+): Promise<{ status: "ok"; filled: number } | { status: "not_found" } | { status: "already_costed" }> {
+  const db = getDb();
+  const [product] = await db
+    .select({ id: products.id, unitCostSatang: products.unitCostSatang })
+    .from(products)
+    .where(and(eq(products.shopId, session.shopId), eq(products.sku, sku)));
+  if (!product) return { status: "not_found" };
+  if (fillPast && product.unitCostSatang !== null) return { status: "already_costed" };
+
+  let filled = 0;
+  if (fillPast) {
+    const updated = await db
+      .update(orderLines)
+      .set({ unitCostSatang })
+      .where(
+        and(
+          eq(orderLines.shopId, session.shopId),
+          eq(orderLines.productId, product.id),
+          isNull(orderLines.unitCostSatang),
+          sql`(SELECT ${products.unitCostSatang} FROM ${products} WHERE ${products.id} = ${product.id}) IS NULL`
+        )
+      )
+      .returning({ id: orderLines.id });
+    filled = updated.length;
+  }
+
+  await db
+    .update(products)
+    .set({ unitCostSatang })
+    .where(and(eq(products.id, product.id), eq(products.shopId, session.shopId)));
+  return { status: "ok", filled };
 }

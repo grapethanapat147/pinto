@@ -59,6 +59,12 @@ export type InventoryItem = {
   daysLeft: number | null;
   sync: string;
   status: "พร้อมขาย" | "ใกล้หมด" | "หมดสต๊อก";
+  /**
+   * Owner only (PIN-0028): absent for staff, so cost never reaches their payload.
+   * `unitCostSatang` is null when the product has no cost yet; `uncostedLines` counts past
+   * order lines with no cost, which the first cost entered can fill once.
+   */
+  cost?: { unitCostSatang: number | null; uncostedLines: number };
 };
 
 export type ConversationMessage = {

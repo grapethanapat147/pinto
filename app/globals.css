@@ -719,6 +719,21 @@ button.stock-row:hover { background: #fdfaf8; }
 .channel-panel .profit-basis { margin-top: 12px; }
 .list-limit-note { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
+/* PIN-0028: cost per unit, edited in place on Stock (owners only). */
+.stock-table.with-cost .stock-row { min-width: 930px; grid-template-columns: 1.65fr .55fr .55fr .7fr 1.05fr 1fr .75fr; }
+/* relative: the visually-hidden label is absolute, and must stay inside the scrolling table rather than widen the page */
+.cost-cell { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.cost-cell .quiet-button { padding: 4px 0; border: 0; background: none; font-size: 14px; cursor: pointer; }
+.cost-cell.editing { flex-direction: column; align-items: stretch; padding: 10px 0; }
+.cost-cell.editing input:not([type="checkbox"]) { width: 100%; max-width: 140px; min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.cost-cell.editing > div { display: flex; gap: 6px; }
+.cost-cell.editing > div button { min-height: 36px; padding: 0 12px; font-size: 13px; }
+.cost-fill { display: flex; align-items: flex-start; gap: 6px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.cost-error { color: var(--danger); font-size: 12px; }
+/* the table scrolls sideways inside its panel; keep the product name in view so the row being edited is never a guess */
+.stock-row > span:first-child { position: sticky; left: 0; z-index: 1; align-self: stretch; display: flex; flex-direction: column; justify-content: center; background: var(--surface); }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 /* ---------------------------------------------------------------------------
  * Responsive layer (PIN-0019).
  *
@@ -823,6 +838,8 @@ button.stock-row:hover { background: #fdfaf8; }
   .action-list-item { grid-template-columns: 40px minmax(0, 1fr) 20px; }
   /* three columns here, so the amount goes under the text, not into the 20px arrow column */
   .action-list-item > strong { grid-column: 2; }.action-list-item > .row-arrow { grid-column: 3; grid-row: 1 / span 2; }
+  /* a pinned 220px name column would leave a phone almost nothing to scroll */
+  .stock-row > span:first-child { position: static; }
   .compact-action-list small { white-space: normal; }
 }
 

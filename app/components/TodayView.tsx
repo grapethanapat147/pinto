@@ -41,7 +41,7 @@ export function TodayView({ period, signedInAs, actions, metrics, payouts, canSe
     <>
       <section className="welcome-row">
         <div><h2>ยินดีต้อนรับกลับ {signedInAs}!</h2><p>ดูสุขภาพร้านและจัดการเรื่องสำคัญได้จากที่เดียว</p></div>
-        <button className="primary-button add-cost-button icon-text-button" onClick={() => notify("ตัวอย่าง — หน้าจัดการต้นทุนสินค้ายังไม่เปิดใช้งาน", "demo")}><Plus size={17} />เพิ่มข้อมูลต้นทุน</button>
+        {canSeeFinance && <button className="primary-button add-cost-button icon-text-button" onClick={() => onNavigate("stock")}><Plus size={17} />เพิ่มข้อมูลต้นทุน</button>}
       </section>
 
       <div className="today-layout">

@@ -158,7 +158,7 @@ export function AppShell({
           {view === "stock" && <StockView inventory={inventory} metrics={metrics} channelSync={channelSync} recommendation={recommendations.stock} notify={notify} />}
           {view === "growth" && <GrowthView campaigns={campaigns} metrics={metrics} recommendation={recommendations.growth} notify={notify} />}
           {view === "customers" && <CustomersView metrics={metrics} recommendation={recommendations.customers} notify={notify} />}
-          {view === "money" && canSeeFinance && <MoneyView payouts={payouts} metrics={metrics} notify={notify} />}
+          {view === "money" && canSeeFinance && <MoneyView payouts={payouts} metrics={metrics} notify={notify} onAddCost={() => changeView("stock")} />}
           {view === "connections" && canSeeFinance && <ConnectionsView connections={connections} notify={notify} />}
         </div>
       </section>
