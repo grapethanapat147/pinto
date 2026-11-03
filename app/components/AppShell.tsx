@@ -3,8 +3,6 @@
 import { useMemo, useRef, useState } from "react";
 import { Check, Info } from "lucide-react";
 
-import { formatBaht } from "../format";
-
 import { ActionDrawer } from "./ActionDrawer";
 import { ActionsView } from "./ActionsView";
 import { AppSidebar } from "./AppSidebar";
@@ -41,7 +39,6 @@ export function AppShell({
   conversations,
   campaigns,
   payouts,
-  actionImpactTotal,
   metrics,
   recommendations,
   signedInAs,
@@ -58,7 +55,6 @@ export function AppShell({
   conversations: Conversation[];
   campaigns: Campaign[];
   payouts: Payout[];
-  actionImpactTotal: string;
   metrics: DashboardMetrics;
   recommendations: Record<string, RecommendationPanel>;
   signedInAs: string;
@@ -72,21 +68,17 @@ export function AppShell({
   const canSeeFinance = role === "owner";
   const [period, setPeriod] = useState("วันนี้");
   const [selectedAction, setSelectedAction] = useState<ShopAction | null>(null);
-  const [resolvedIds, setResolvedIds] = useState<number[]>([]);
+  const [snoozedKeys, setSnoozedKeys] = useState<string[]>([]);
   const [toast, setToast] = useState<{ message: string; tone: ToastTone } | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
   const [query, setQuery] = useState("");
   const [actionFilter, setActionFilter] = useState("ทั้งหมด");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const activeActions = actionItems.filter((item) => !resolvedIds.includes(item.id));
-  // spec Q3: a live sum, not the literal ฿22,990 it used to be
-  const impactTotal = activeActions.some((a) => a.impactSatang !== undefined)
-    ? formatBaht(activeActions.reduce((sum, a) => sum + (a.impactSatang ?? 0), 0))
-    : actionImpactTotal;
+  const activeActions = actionItems.filter((item) => !snoozedKeys.includes(item.key));
   const visibleActions = actionFilter === "ทั้งหมด"
     ? activeActions
-    : activeActions.filter((item) => item.label === actionFilter);
+    : activeActions.filter((item) => item.urgent === (actionFilter === "ต้องทำวันนี้"));
   const visibleOrders = useMemo(() => orders.filter((order) => {
     const value = query.trim().toLowerCase();
     return !value || `${order.id} ${order.customer} ${order.channel}`.toLowerCase().includes(value);
@@ -99,10 +91,14 @@ export function AppShell({
     toastTimer.current = window.setTimeout(() => setToast(null), tone === "demo" ? 3600 : 2400);
   }
 
-  async function resolveAction(action: ShopAction) {
+  async function snoozeAction(action: ShopAction) {
     // spec D4: persist first, and only claim success once the backend confirms it
     try {
-      const response = await fetch(`/api/actions/${action.id}/resolve`, { method: "POST" });
+      const response = await fetch("/api/actions/snooze", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: action.key }),
+      });
       if (!response.ok) {
         notify("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง", "demo");
         return;
@@ -111,9 +107,9 @@ export function AppShell({
       notify("เชื่อมต่อไม่ได้ จึงยังไม่ได้บันทึก", "demo");
       return;
     }
-    setResolvedIds((current) => [...current, action.id]);
+    setSnoozedKeys((current) => [...current, action.key]);
     setSelectedAction(null);
-    notify("บันทึกแล้ว — ย้ายรายการไปที่เสร็จสิ้น");
+    notify("ซ่อนไว้แล้ว — จะกลับมาพรุ่งนี้ถ้ายังไม่ได้แก้");
   }
 
   function changeView(nextView: View) {
@@ -151,11 +147,10 @@ export function AppShell({
             <ActionsView
               actions={visibleActions}
               activeCount={activeActions.length}
+              urgentCount={activeActions.filter((item) => item.urgent).length}
               filter={actionFilter}
               setFilter={setActionFilter}
               onOpenAction={setSelectedAction}
-              impactTotal={impactTotal}
-              notify={notify}
             />
           )}
           {view === "orders" && <OrdersView query={query} setQuery={setQuery} orders={visibleOrders} shown={orders.length} total={orderTotal} tiles={metrics.tiles.orders ?? []} notify={notify} />}
@@ -169,7 +164,7 @@ export function AppShell({
       </section>
 
       {mobileMenuOpen && <MobileMoreSheet view={view} canSeeFinance={canSeeFinance} onChangeView={changeView} onClose={() => setMobileMenuOpen(false)} />}
-      {selectedAction && <ActionDrawer action={selectedAction} onClose={() => setSelectedAction(null)} onResolve={() => { void resolveAction(selectedAction); }} notify={notify} />}
+      {selectedAction && <ActionDrawer action={selectedAction} onClose={() => setSelectedAction(null)} onGo={() => { setSelectedAction(null); changeView(selectedAction.cta.view); }} onSnooze={() => { void snoozeAction(selectedAction); }} />}
       {toast && (
         <div className={`toast ${toast.tone}`} role="status">
           <span>{toast.tone === "demo" ? <Info size={13} strokeWidth={2.6} /> : <Check size={14} strokeWidth={2.4} />}</span>

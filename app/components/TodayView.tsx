@@ -87,10 +87,10 @@ export function TodayView({ period, signedInAs, actions, metrics, payouts, canSe
           <section className="panel compact-action-panel">
             <div className="panel-heading"><div><p>Action Center</p><h3>เรื่องสำคัญที่ควรจัดการ</h3></div><button className="quiet-button icon-text-button" onClick={onViewActions}>ดูทั้งหมด <ArrowRight size={15} /></button></div>
             {actions.length > 0 ? <div className="compact-action-list">{actions.map((action) => (
-              <button key={action.id} onClick={() => onOpenAction(action)}>
+              <button key={action.key} onClick={() => onOpenAction(action)}>
                 <span className={`action-symbol ${action.tone}`}><ActionToneIcon tone={action.tone} /></span>
                 <div><strong>{action.title}</strong><small>{action.channel} · {action.detail}</small></div>
-                <b>{action.impact}</b><i><ArrowRight size={16} /></i>
+                <b>{action.amount ?? ""}</b><i><ArrowRight size={16} /></i>
               </button>
             ))}</div> : <EmptyState title="จัดการครบแล้ว เก่งมาก!" detail="ตอนนี้ไม่มีเรื่องเร่งด่วนสำหรับร้านของคุณ" />}
           </section>

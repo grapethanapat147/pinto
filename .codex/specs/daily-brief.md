@@ -1,6 +1,17 @@
 # Daily brief: an Action Center computed from the shop's own data
 
-**Status:** draft 2026-11-03 — eight open questions below, each with a recommendation.
+**Status:** decided 2026-11-03. เกรพ accepted all eight recommendations.
+
+| | decision |
+| --- | --- |
+| Q1 | The four seeded actions are deleted; `actions` deprecated in place |
+| Q2 | Six rules: stock, late packing, review, unread chats; ad spend and missing cost owner-only |
+| Q3 | Days left computed from 7-day sales; seed `on_hand` scaled; production by a guarded script |
+| Q4 | Pack window is a shop setting, default 24 h, labelled as the shop's rule |
+| Q5 | Only factual amounts on cards; the headline impact total goes |
+| Q6 | One secondary action, "ซ่อนถึงพรุ่งนี้", in `action_snoozes`; the primary goes where the work is |
+| Q7 | Three-step, data-derived checklist for owners; PIN-0028 joins phase 1 |
+| Q8 | Setting a first cost offers once to fill past lines that had none |
 
 Phase 1 of the roadmap เกรพ approved on 2026-11-03, after a scan of Shopify Sidekick, Amazon
 Seller Assistant, TikTok Shop's AI homepage, Triple Whale, Shopee/Lazada and ZORT:

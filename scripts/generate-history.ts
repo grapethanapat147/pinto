@@ -253,3 +253,13 @@ export function pricedHistory({
 
   return { orders, adDays };
 }
+
+/**
+ * Stock sized to sell for `targetDays` at the last week's rate (PIN-0031), shared by the seed
+ * and `scripts/remote-scale-stock.mjs` so the two cannot size it differently. The half day
+ * keeps a product clear of the brief's thresholds, so rounding cannot flip a card.
+ */
+export function stockForDays(unitsLastWeek: number, targetDays: number): number {
+  if (targetDays <= 0) return 0;
+  return Math.ceil((unitsLastWeek / 7) * (targetDays + 0.5));
+}

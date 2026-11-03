@@ -41,11 +41,6 @@ export function bangkokDay(iso: string): string {
   }).format(new Date(iso));
 }
 
-/** ISO -> "อัปเดต 10:38 น." */
-export function formatUpdatedAt(iso: string): string {
-  return `อัปเดต ${formatTime(iso)} น.`;
-}
-
 /**
  * Message stamps show a clock time on the day itself and "เมื่อวาน" the day before,
  * reproducing the fixtures' mixed display while staying correct as the demo ages.

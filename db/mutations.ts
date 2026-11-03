@@ -6,23 +6,22 @@
  * for an unknown id instead of a misleading 200 — the PIN-0001 rule applied to the
  * backend: never report success for work that did not happen.
  */
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { getDb } from "./index";
-import { actions, conversations, messages } from "./schema";
+import { actionSnoozes, conversations, messages } from "./schema";
 
 import type { SessionUser } from "./auth";
 
-/** Returns false when the action does not exist, belongs elsewhere, or is already done. */
-export async function resolveAction(session: SessionUser, actionId: number): Promise<boolean> {
-  const db = getDb();
-  const updated = await db
-    .update(actions)
-    .set({ resolvedAt: new Date().toISOString() })
-    .where(and(eq(actions.id, actionId), eq(actions.shopId, session.shopId), isNull(actions.resolvedAt)))
-    .returning({ id: actions.id });
-
-  return updated.length > 0;
+/**
+ * "ซ่อนถึงพรุ่งนี้" on a daily-brief card (PIN-0031): hides that card for this shop until
+ * `until`. Snoozing again moves the time; it never hides another shop's card.
+ */
+export async function snoozeCard(session: SessionUser, cardKey: string, until: string): Promise<void> {
+  await getDb()
+    .insert(actionSnoozes)
+    .values({ shopId: session.shopId, cardKey, until })
+    .onConflictDoUpdate({ target: [actionSnoozes.shopId, actionSnoozes.cardKey], set: { until } });
 }
 
 /** Returns false when the conversation does not exist or belongs to another shop. */

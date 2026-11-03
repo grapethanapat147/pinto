@@ -311,14 +311,6 @@ test("serves actions, conversations, campaigns and payouts from D1", async () =>
   const response = await render();
   const html = await response.text();
 
-  // actions: impact and source strings are rebuilt from stored parts, not stored whole
-  assert.match(html, /แคมเปญ TikTok ใช้งบสูงกว่าปกติ/);
-  assert.match(html, /เสี่ยงเสีย ฿3,240/, "impact rebuilt from impact_kind + impact_satang");
-  assert.match(html, /อัปเดต \d{2}:\d{2} น\./, "source rebuilt from detected_at");
-
-  // the Action Center total is a live sum of open actions (spec Q3), not the old literal
-  assert.match(html, /฿22,990/, "3,240 + 6,890 + 12,400 + 460 with nothing resolved");
-
   // conversations: preview is its own column, not the last message
   assert.match(html, /ต้องการใบกำกับภาษีค่ะ/, "editorial preview, differs from the message body");
   assert.match(html, /รบกวนออกใบกำกับภาษีในนามบริษัทได้ไหมคะ/, "the message body itself");
@@ -336,27 +328,33 @@ test("serves actions, conversations, campaigns and payouts from D1", async () =>
 
 // These mutate the shared in-memory database, so they run last and in order.
 test("rejects bad writes without touching the database", async () => {
-  assert.equal((await post("/api/actions/9999/resolve")).status, 404, "unknown action");
+  assert.equal((await post("/api/actions/snooze", { key: "fraud:orders" })).status, 400, "unknown rule");
+  assert.equal((await post("/api/actions/snooze", { key: "stock:x; DROP TABLE orders" })).status, 400, "malformed key");
+  assert.equal((await post("/api/actions/snooze", {})).status, 400, "no key");
   assert.equal((await post("/api/conversations/9999/messages", { body: "hi" })).status, 404, "unknown conversation");
   assert.equal((await post("/api/conversations/1/messages", { body: "   " })).status, 400, "blank message");
 
-  // nothing above should have changed what the page serves
-  const html = await (await render()).text();
-  assert.match(html, /฿22,990/, "the action total must be untouched by failed writes");
+  // nothing above should have changed anything
+  const { n } = await globalThis.__PINTO_TEST_ENV__.DB.prepare("SELECT COUNT(*) AS n FROM action_snoozes").bind().first();
+  assert.equal(n, 0, "a rejected snooze must not be stored");
 });
 
-test("resolving an action persists and reduces the live total", async () => {
-  const response = await post("/api/actions/1/resolve");
+test("snoozing a card hides it until the next Bangkok day, for this shop only", async () => {
+  assert.match(await (await render()).text(), /chat:unread/, "the unread-chat card is there to begin with");
+
+  const response = await post("/api/actions/snooze", { key: "chat:unread" });
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { resolved: true });
+  const { until } = await response.json();
+  // next midnight in Bangkok, which is 17:00 UTC
+  assert.match(until, /T17:00:00\.000Z$/);
+  assert.ok(Date.parse(until) > Date.now() && Date.parse(until) - Date.now() <= 86_400_000);
 
-  const html = await (await render()).text();
-  assert.doesNotMatch(html, /แคมเปญ TikTok ใช้งบสูงกว่าปกติ/, "resolved action should be gone");
-  assert.match(html, /฿19,750/, "22,990 - 3,240");
-  assert.doesNotMatch(html, /฿22,990/);
+  assert.doesNotMatch(await (await render()).text(), /chat:unread/, "hidden after snoozing");
 
-  // resolving twice is not a silent success
-  assert.equal((await post("/api/actions/1/resolve")).status, 404);
+  // an expired snooze no longer hides it
+  await globalThis.__PINTO_TEST_ENV__.DB.prepare("UPDATE action_snoozes SET until = '2000-01-01T00:00:00.000Z'").bind().run();
+  assert.match(await (await render()).text(), /chat:unread/, "back once the snooze has passed");
+  await globalThis.__PINTO_TEST_ENV__.DB.prepare("DELETE FROM action_snoozes").bind().run();
 });
 
 test("sending a reply persists into the thread", async () => {
@@ -408,7 +406,6 @@ test("renders empty states rather than crashing on an empty database", async () 
     assert.match(html, /จัดการครบแล้ว เก่งมาก!/, "today-view empty state");
     // and no fixture data leaks in to fill the gap
     assert.doesNotMatch(html, /TT-10842/);
-    assert.doesNotMatch(html, /฿22,990/);
   } finally {
     globalThis.__PINTO_TEST_ENV__ = seeded;
   }
@@ -513,12 +510,15 @@ test("logout revokes the session server-side", async () => {
 
 test("rejects unauthenticated writes without touching the database", async () => {
   const db = globalThis.__PINTO_TEST_ENV__.DB;
-  const before = (await db.prepare("SELECT count(*) c FROM actions WHERE resolved_at IS NOT NULL").bind().all())
-    .results[0].c;
+  const before = (await db.prepare("SELECT count(*) c FROM action_snoozes").bind().all()).results[0].c;
 
-  // no cookie at all — this returned 200 and resolved a real action before PIN-0012
-  const resolve = await fetchWorker("/api/actions/1/resolve", { method: "POST" });
-  assert.equal(resolve.status, 401);
+  // no cookie at all — the resolve route this replaced returned 200 before PIN-0012
+  const snooze = await fetchWorker("/api/actions/snooze", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ key: "chat:unread" }),
+  });
+  assert.equal(snooze.status, 401);
 
   const message = await fetchWorker("/api/conversations/1/messages", {
     method: "POST",
@@ -527,8 +527,7 @@ test("rejects unauthenticated writes without touching the database", async () =>
   });
   assert.equal(message.status, 401);
 
-  const after = (await db.prepare("SELECT count(*) c FROM actions WHERE resolved_at IS NOT NULL").bind().all())
-    .results[0].c;
+  const after = (await db.prepare("SELECT count(*) c FROM action_snoozes").bind().all()).results[0].c;
   assert.equal(after, before, "a rejected write must not change anything");
   const leaked = (await db.prepare("SELECT count(*) c FROM messages WHERE body = 'ไม่ควรถูกบันทึก'").bind().all())
     .results[0].c;
@@ -942,6 +941,159 @@ test("the backfill brings a pre-PIN-0026 database forward without touching a row
   } finally {
     globalThis.__PINTO_TEST_ENV__ = seeded;
   }
+});
+
+/**
+ * PIN-0031: the daily brief. Expected cards are worked out here in SQL, separately from
+ * `db/brief.ts`, so a wrong rule cannot also be in the expectation.
+ */
+const staffSession = { userId: 2, shopId: 1, role: "staff", displayName: "ทดสอบ", pictureUrl: null };
+
+async function withFreshDb(work) {
+  const seeded = globalThis.__PINTO_TEST_ENV__;
+  const db = createTestD1();
+  globalThis.__PINTO_TEST_ENV__ = { DB: db };
+  try {
+    return await work(db);
+  } finally {
+    globalThis.__PINTO_TEST_ENV__ = seeded;
+  }
+}
+
+async function anchorOf(db) {
+  return Date.parse((await db.prepare("SELECT MAX(last_synced_at) AS at FROM channel_health").bind().first()).at);
+}
+
+test("the brief is computed from the shop's own rows, not typed in", async () => {
+  await withFreshDb(async (db) => {
+    const { listBrief } = await import("../db/brief.ts");
+    const cards = await listBrief(ownerSession);
+    const byKey = Object.fromEntries(cards.map((card) => [card.key, card]));
+
+    // nothing from the old fixture survives
+    const { n: seededActions } = await db.prepare("SELECT COUNT(*) AS n FROM actions").bind().first();
+    assert.equal(seededActions, 0, "the four typed-in actions are gone (spec Q1)");
+    for (const card of cards) assert.doesNotMatch(card.title, /ยกเลิกผิดปกติ|น้ำหนักเรียกเก็บ/);
+
+    // review: count and value from the orders themselves
+    const anchor = await anchorOf(db);
+    const review = await db
+      .prepare("SELECT COUNT(*) AS n, SUM(total_satang) AS v FROM orders WHERE status = 'ตรวจสอบ' AND placed_at <= ?")
+      .bind(new Date(anchor).toISOString())
+      .first();
+    assert.equal(byKey["review:orders"].title, `${review.n} ออเดอร์รอตรวจสอบ`);
+    assert.equal(byKey["review:orders"].amount, `มูลค่า ${baht(review.v)}`);
+
+    // unread chats
+    const unread = await db.prepare("SELECT SUM(unread_count) AS m, COUNT(*) AS c FROM conversations WHERE unread_count > 0").bind().first();
+    assert.equal(byKey["chat:unread"].title, `${unread.m} ข้อความรอตอบ`);
+    assert.equal(byKey["chat:unread"].amount, null, "no honest baht figure for unread chats (Q5)");
+
+    // stock: days left = on hand ÷ units per day over the last seven days, computed here in SQL
+    const vase = await db
+      .prepare(
+        "SELECT i.on_hand AS onHand, SUM(l.quantity) / 7.0 AS perDay FROM products p " +
+          "JOIN inventory_levels i ON i.product_id = p.id JOIN order_lines l ON l.product_id = p.id " +
+          "JOIN orders o ON o.id = l.order_id WHERE p.sku = 'ML-CV-018' AND o.placed_at >= ? AND o.placed_at <= ?"
+      )
+      .bind(new Date(anchor - 7 * 86_400_000).toISOString(), new Date(anchor).toISOString())
+      .first();
+    const days = vase.onHand / vase.perDay;
+    assert.ok(days > 3 && days < 7, `the seed sizes the vase to about 3.5 days, got ${days}`);
+    assert.match(byKey["stock:ML-CV-018"].title, new RegExp(`จะหมดในราว ${Number(days.toFixed(1))} วัน`));
+    assert.equal(byKey["stock:ML-CV-018"].urgent, false, "over three days is not urgent");
+    assert.equal(byKey["stock:ML-CL-006"].urgent, true, "out of stock is");
+    assert.equal(byKey["stock:ML-TR-031"], undefined, "three weeks of stock raises nothing");
+
+    // the Stock view reads the same computation, not the stored days_left
+    const { listInventory } = await import("../db/queries.ts");
+    const stockRow = (await listInventory(ownerSession)).find((item) => item.sku === "ML-CV-018");
+    assert.equal(stockRow.daysLeft, Math.floor(days));
+
+    // urgent cards come first, and every card says what it read
+    const firstRelaxed = cards.findIndex((card) => !card.urgent);
+    assert.ok(cards.slice(firstRelaxed).every((card) => !card.urgent), "urgent cards sort first");
+    for (const card of cards) assert.ok(card.basis && card.consequence && card.cta.view, `${card.key} is incomplete`);
+  });
+});
+
+test("owner-only cards never reach staff, and staff cannot snooze them", async () => {
+  await withFreshDb(async () => {
+    const { listBrief } = await import("../db/brief.ts");
+    const owner = (await listBrief(ownerSession)).map((card) => card.key);
+    const staff = (await listBrief(staffSession)).map((card) => card.key);
+    assert.ok(owner.includes("cost:missing"), "the owner is told about the uncosted product");
+    assert.ok(!staff.some((key) => /^(cost|ads):/.test(key)), `staff got ${staff.join(", ")}`);
+
+    // in the payload too, not merely unrendered
+    const staffHtml = await (await render("/", { cookie: await signIn("staff") })).text();
+    assert.doesNotMatch(staffHtml, /cost:missing|ยังไม่มีต้นทุน/);
+
+    const response = await fetchWorker("/api/actions/snooze", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: await signIn("staff") },
+      body: JSON.stringify({ key: "cost:missing" }),
+    });
+    assert.equal(response.status, 403);
+  });
+});
+
+test("a card clears by itself when its data does", async () => {
+  await withFreshDb(async (db) => {
+    const { listBrief } = await import("../db/brief.ts");
+    await db.exec(`
+      UPDATE products SET unit_cost_satang = 24000 WHERE unit_cost_satang IS NULL;
+      UPDATE conversations SET unread_count = 0;
+      UPDATE orders SET status = 'พร้อมส่ง' WHERE status = 'ตรวจสอบ';
+    `);
+    const keys = (await listBrief(ownerSession)).map((card) => card.key);
+    for (const gone of ["cost:missing", "chat:unread", "review:orders"]) {
+      assert.ok(!keys.includes(gone), `${gone} should clear once its condition does`);
+    }
+  });
+});
+
+test("orders past the shop's pack window raise a card, by the shop's own rule", async () => {
+  await withFreshDb(async (db) => {
+    const { listBrief } = await import("../db/brief.ts");
+    assert.ok(!(await listBrief(ownerSession)).some((card) => card.key === "pack:late"), "nothing is late in the seed");
+
+    const anchor = await anchorOf(db);
+    for (const [ext, hours, total] of [["LATE-1", 25, 120000], ["LATE-2", 30, 80000], ["FRESH-1", 2, 50000]]) {
+      await db
+        .prepare("INSERT INTO orders (shop_id,channel_id,external_id,customer_name,total_satang,status,placed_at) VALUES (1,1,?,'ทดสอบ',?,'รอแพ็ก',?)")
+        .bind(ext, total, new Date(anchor - hours * 3_600_000).toISOString())
+        .run();
+    }
+    const late = (await listBrief(ownerSession)).find((card) => card.key === "pack:late");
+    assert.equal(late.title, "2 ออเดอร์รอแพ็กเกิน 24 ชม.", "only the two older than 24 h");
+    assert.equal(late.amount, "มูลค่า ฿2,000");
+    assert.match(late.basis, /ตามที่ร้านตั้งไว้/, "labelled as the shop's rule, not a platform's");
+
+    await db.prepare("UPDATE shops SET pack_window_hours = 48").bind().run();
+    assert.ok(!(await listBrief(ownerSession)).some((card) => card.key === "pack:late"), "a wider window clears it");
+  });
+});
+
+test("ad spend unusually high for its sales raises a card for the owner", async () => {
+  await withFreshDb(async (db) => {
+    const { listBrief } = await import("../db/brief.ts");
+    assert.ok(!(await listBrief(ownerSession)).some((card) => card.key.startsWith("ads:")), "the seed's spend is steady");
+
+    // double TikTok's spend on the last full day before the anchor
+    const anchor = await anchorOf(db);
+    const yesterday = new Date(anchor + 7 * 3_600_000 - 86_400_000).toISOString().slice(0, 10);
+    const { changes } = (await db
+      .prepare("UPDATE ad_spend_daily SET spend_satang = spend_satang * 2 WHERE day = ? AND channel_id = (SELECT id FROM channels WHERE code = 'tiktok')")
+      .bind(yesterday)
+      .run()).meta;
+    assert.equal(changes, 1);
+
+    const ads = (await listBrief(ownerSession)).find((card) => card.key.startsWith("ads:"));
+    assert.ok(ads, "doubling spend against unchanged sales should be flagged");
+    assert.equal(ads.title, "ค่าโฆษณา TikTok Shop สูงกว่าปกติ");
+    assert.ok(!(await listBrief(staffSession)).some((card) => card.key.startsWith("ads:")));
+  });
 });
 
 test("staff never receive finance data, owners do", async () => {

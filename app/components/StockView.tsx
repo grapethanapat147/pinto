@@ -30,7 +30,7 @@ export function StockView({ inventory, metrics, channelSync, recommendation, not
             {visibleInventory.map((item) => (
               <button className="stock-row" key={item.sku} onClick={() => notify(`ตัวอย่าง — หน้ารายละเอียด ${item.name} ยังไม่เปิดใช้งาน`, "demo")}>
                 <span><strong>{item.name}</strong><small>{item.sku} · {item.category}</small></span>
-                <strong>{item.stock}</strong><span>{item.reserved}</span><span>{item.daysLeft > 0 ? `${item.daysLeft} วัน` : "—"}</span><span>{item.sync}</span>
+                <strong>{item.stock}</strong><span>{item.reserved}</span><span>{item.daysLeft === null || item.stock <= 0 ? "—" : item.daysLeft < 1 ? "ไม่ถึง 1 วัน" : `${item.daysLeft} วัน`}</span><span>{item.sync}</span>
                 <StatusPill tone={item.status === "พร้อมขาย" ? "good" : item.status === "ใกล้หมด" ? "warning" : "danger"}>{item.status}</StatusPill>
               </button>
             ))}

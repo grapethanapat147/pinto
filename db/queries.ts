@@ -4,24 +4,25 @@
  *
  * Derived values are computed here rather than stored (schema-v1 F2).
  */
-import { and, asc, desc, eq, isNull, lte, ne, sql, sum } from "drizzle-orm";
+import { and, asc, desc, eq, lte, ne, sql } from "drizzle-orm";
 
 import { getDb } from "./index";
 import {
-  actions, campaigns, channels, conversations, customerSegments,
+  campaigns, channels, conversations, customerSegments,
   inventoryChannelSync,
   dashboardMetrics, inventoryLevels, messages, orders, payouts, productOpportunities,
   products, recommendations, regions, restockSuggestions, shops,
 } from "./schema";
 import {
   bangkokDay, formatBaht, formatChange, formatCompactBaht, formatMessageStamp, formatPercent,
-  formatRoas, formatThaiDay, formatTime, formatUpdatedAt, trendArrow,
+  formatRoas, formatThaiDay, formatTime, trendArrow,
 } from "../app/format";
 import type {
   Campaign, ChannelConnection, ChannelSyncRow, Conversation, DashboardMetrics, InventoryItem,
-  Order, PeriodFigures, Payout, RecommendationPanel, ShopAction,
+  Order, PeriodFigures, Payout, RecommendationPanel,
 } from "../app/types";
-import { coverageOf, loadPerformance, PERIODS, profitOf, windowsFor, type PeriodPerformance } from "./performance";
+import { coverageOf, loadAnchor, loadPerformance, PERIODS, profitOf, salesVelocity, windowsFor, type PeriodPerformance } from "./performance";
+import { daysLeftOf, STOCK_WARN_DAYS } from "./brief";
 
 /**
  * Every read takes the caller's session and scopes to `session.shopId`.
@@ -40,7 +41,7 @@ import { providerStatus } from "./channel-providers";
  */
 function stockStatus(onHand: number, daysLeft: number | null): InventoryItem["status"] {
   if (onHand === 0) return "หมดสต๊อก";
-  if (daysLeft !== null && daysLeft <= 7) return "ใกล้หมด";
+  if (daysLeft !== null && daysLeft < STOCK_WARN_DAYS) return "ใกล้หมด";
   return "พร้อมขาย";
 }
 
@@ -127,7 +128,6 @@ export async function listInventory(session: SessionUser): Promise<InventoryItem
       category: products.category,
       onHand: inventoryLevels.onHand,
       reserved: inventoryLevels.reserved,
-      daysLeft: inventoryLevels.daysLeft,
     })
     .from(inventoryLevels)
     .innerJoin(products, eq(products.id, inventoryLevels.productId))
@@ -145,40 +145,21 @@ export async function listInventory(session: SessionUser): Promise<InventoryItem
     .where(eq(inventoryChannelSync.shopId, session.shopId))
     .orderBy(asc(inventoryChannelSync.channelId));
 
-  return rows.map((row) => ({
-    sku: row.sku,
-    name: row.name,
-    category: row.category,
-    stock: row.onHand,
-    reserved: row.reserved,
-    daysLeft: row.daysLeft ?? 0,
-    sync: syncLabel(syncRows.filter((entry) => entry.productId === row.productId)),
-    status: stockStatus(row.onHand, row.daysLeft),
-  }));
-}
-
-export async function listActions(session: SessionUser): Promise<ShopAction[]> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(actions)
-    .where(and(eq(actions.shopId, session.shopId), isNull(actions.resolvedAt)))
-    .orderBy(asc(actions.id));
-
-  return rows.map((row) => ({
-    id: row.id,
-    tone: row.tone,
-    label: row.label,
-    title: row.title,
-    detail: row.detail,
-    // rebuilt from the two stored parts rather than kept as a display string
-    impact: `${row.impactKind} ${formatBaht(row.impactSatang)}`,
-    impactSatang: row.impactSatang,
-    channel: row.channelLabel,
-    source: formatUpdatedAt(row.detectedAt),
-    insight: row.insight,
-    recommendation: row.recommendation,
-  }));
+  // computed from sales since PIN-0031 — the stored days_left described a smaller shop
+  const velocity = await salesVelocity(session, (await loadAnchor(session)).anchor);
+  return rows.map((row) => {
+    const daysLeft = daysLeftOf(row.onHand, velocity.get(row.productId)?.unitsPerDay);
+    return {
+      sku: row.sku,
+      name: row.name,
+      category: row.category,
+      stock: row.onHand,
+      reserved: row.reserved,
+      daysLeft: daysLeft === null ? null : Math.floor(daysLeft),
+      sync: syncLabel(syncRows.filter((entry) => entry.productId === row.productId)),
+      status: stockStatus(row.onHand, daysLeft),
+    };
+  });
 }
 
 export async function listConversations(session: SessionUser): Promise<Conversation[]> {
@@ -278,16 +259,6 @@ export async function listPayouts(session: SessionUser): Promise<Payout[]> {
     amount: formatBaht(row.amountSatang),
     status: row.status,
   }));
-}
-
-/** Spec Q3: the Action Center headline stops being a literal and becomes a live sum. */
-export async function openActionImpactTotal(session: SessionUser): Promise<string> {
-  const db = getDb();
-  const [row] = await db
-    .select({ total: sum(actions.impactSatang) })
-    .from(actions)
-    .where(and(eq(actions.shopId, session.shopId), isNull(actions.resolvedAt)));
-  return formatBaht(Number(row?.total ?? 0));
 }
 
 /** One period's figures, formatted. Profit and its coverage always travel together. */

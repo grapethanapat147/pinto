@@ -821,6 +821,8 @@ button.stock-row:hover { background: #fdfaf8; }
   .snapshot-card p { font-size: 14px; }.snapshot-card h3 { font-size: 21px; }.snapshot-card small { font-size: 13px; }
   .right-rail { grid-template-columns: 1fr; }
   .action-list-item { grid-template-columns: 40px minmax(0, 1fr) 20px; }
+  /* three columns here, so the amount goes under the text, not into the 20px arrow column */
+  .action-list-item > strong { grid-column: 2; }.action-list-item > .row-arrow { grid-column: 3; grid-row: 1 / span 2; }
   .compact-action-list small { white-space: normal; }
 }
 

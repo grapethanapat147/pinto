@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { AppShell } from "./components/AppShell";
 import { DataUnavailable } from "./components/DataUnavailable";
 import { getSession } from "./session";
+import { listBrief } from "../db/brief";
 import {
-  listActions,
   listCampaigns,
   listConversations,
   listChannelSync,
@@ -14,7 +14,6 @@ import {
   listPayouts,
   listRecommendations,
   listChannelConnections,
-  openActionImpactTotal,
   shopName,
 } from "../db/queries";
 
@@ -37,17 +36,17 @@ async function loadDashboard() {
     // component, and anything sent to it is readable however the nav is drawn.
     const canSeeFinance = session.role === "owner";
 
-    const [shop, orders, orderTotal, inventory, actions, conversations, campaigns, payouts, actionImpactTotal, metrics, recommendations, channelSync, connections] =
+    const [shop, orders, orderTotal, inventory, actions, conversations, campaigns, payouts, metrics, recommendations, channelSync, connections] =
       await Promise.all([
         shopName(session),
         listOrders(session),
         countOrders(session),
         listInventory(session),
-        listActions(session),
+        // role-aware: owner-only cards (ads, cost) are never computed for staff
+        listBrief(session),
         listConversations(session),
         listCampaigns(session),
         canSeeFinance ? listPayouts(session) : Promise.resolve([]),
-        openActionImpactTotal(session),
         listDashboardMetrics(session),
         listRecommendations(session),
         listChannelSync(session),
@@ -73,7 +72,6 @@ async function loadDashboard() {
       conversations,
       campaigns,
       payouts,
-      actionImpactTotal,
       metrics,
       recommendations,
       channelSync,
@@ -108,7 +106,6 @@ export default async function Page() {
       conversations={data.conversations}
       campaigns={data.campaigns}
       payouts={data.payouts}
-      actionImpactTotal={data.actionImpactTotal}
       metrics={data.metrics}
       recommendations={data.recommendations}
       signedInAs={data.signedInAs}

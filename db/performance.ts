@@ -117,15 +117,53 @@ export function adShare(day: string, anchor: number, window: Window): number {
 
 const iso = (instant: number) => new Date(instant).toISOString();
 
-export async function loadPerformance(session: SessionUser): Promise<Performance> {
-  const db = getDb();
-
-  const [syncRow] = await db
+/** The last successful sync, which every window ends at; the clock if nothing has synced. */
+export async function loadAnchor(session: SessionUser): Promise<{ anchor: number; synced: boolean }> {
+  const [syncRow] = await getDb()
     .select({ at: max(channelHealth.lastSyncedAt) })
     .from(channelHealth)
     .where(eq(channelHealth.shopId, session.shopId));
-  const synced = Boolean(syncRow?.at);
-  const anchor = synced ? Date.parse(syncRow!.at!) : Date.now();
+  return syncRow?.at ? { anchor: Date.parse(syncRow.at), synced: true } : { anchor: Date.now(), synced: false };
+}
+
+/** The window "units per day" is averaged over (PIN-0031). */
+export const VELOCITY_DAYS = 7;
+
+/**
+ * Units and revenue per day for each product over the last `VELOCITY_DAYS` up to the anchor —
+ * what days-left and the stock card divide by. Products with no sales are absent.
+ */
+export async function salesVelocity(
+  session: SessionUser,
+  anchor: number
+): Promise<Map<number, { unitsPerDay: number; revenuePerDaySatang: number }>> {
+  const rows = await getDb()
+    .select({
+      productId: orderLines.productId,
+      units: sql<number>`sum(${orderLines.quantity})`.as("units"),
+      revenue: sql<number>`sum(${orderLines.quantity} * ${orderLines.unitPriceSatang})`.as("revenue"),
+    })
+    .from(orderLines)
+    .innerJoin(orders, eq(orders.id, orderLines.orderId))
+    .where(
+      and(
+        eq(orders.shopId, session.shopId),
+        gte(orders.placedAt, iso(anchor - VELOCITY_DAYS * DAY_MS)),
+        lte(orders.placedAt, iso(anchor))
+      )
+    )
+    .groupBy(orderLines.productId);
+  return new Map(
+    rows.map((row) => [
+      row.productId,
+      { unitsPerDay: Number(row.units) / VELOCITY_DAYS, revenuePerDaySatang: Number(row.revenue) / VELOCITY_DAYS },
+    ])
+  );
+}
+
+export async function loadPerformance(session: SessionUser): Promise<Performance> {
+  const db = getDb();
+  const { anchor, synced } = await loadAnchor(session);
 
   const windows = PERIODS.map((period) => ({ ...period, ...windowsFor(anchor, period.days) }));
   const earliest = Math.min(...windows.map((w) => w.previous.from));

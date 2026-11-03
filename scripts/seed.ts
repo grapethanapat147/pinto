@@ -10,12 +10,11 @@
  * - time: display strings are anchored to the seed run (spec Q2), preserving their
  *   relative offsets, so the demo always reads as "today" instead of ageing
  */
-import { actionItems } from "../app/fixtures/actions.ts";
 import { campaigns } from "../app/fixtures/campaigns.ts";
 import { conversations } from "../app/fixtures/conversations.ts";
 import { inventory } from "../app/fixtures/inventory.ts";
 import { orderLines, productCosts } from "../app/fixtures/order-lines.ts";
-import { pricedHistory } from "./generate-history.ts";
+import { pricedHistory, stockForDays } from "./generate-history.ts";
 import { orders } from "../app/fixtures/orders.ts";
 import { payouts } from "../app/fixtures/payouts.ts";
 import {
@@ -38,10 +37,6 @@ function satang(display: string): number {
   return Math.round(Number(match[1].replace(/,/g, "")) * 100);
 }
 
-/** The label before the amount: "เสี่ยงเสีย ฿3,240" -> "เสี่ยงเสีย". */
-function impactKind(display: string): string {
-  return display.slice(0, display.indexOf("฿")).trim();
-}
 
 const SEED_AT = new Date();
 const minutesAgo = (n: number) => new Date(SEED_AT.getTime() - n * 60_000).toISOString();
@@ -82,12 +77,6 @@ function beforeSeed(hhmm: string): string {
   return minutesAgo(10 * 60 + 42 - (h * 60 + m));
 }
 
-/** "อัปเดต 10:38 น." -> "10:38" */
-function timeIn(text: string): string {
-  const match = text.match(/(\d{1,2}:\d{2})/);
-  if (!match) throw new Error(`no time in ${JSON.stringify(text)}`);
-  return match[1];
-}
 
 /**
  * Message stamps are either a clock time or a relative word. Only the words actually
@@ -149,7 +138,7 @@ const insert = (table: string, cols: string[], rows: (string | number | null)[][
 // Idempotent: wipe in FK-safe order, then reinsert. Only ever touches seeded tables.
 out.push("PRAGMA defer_foreign_keys = ON;");
 for (const t of [
-  "messages", "conversations", "order_lines", "orders", "ad_spend_daily", "inventory_levels", "products",
+  "action_snoozes", "messages", "conversations", "order_lines", "orders", "ad_spend_daily", "inventory_levels", "products",
   "actions", "campaigns", "payouts",
   // presentation scaffolding (schema-v1 Q1c)
   "dashboard_metrics", "channel_metrics", "customer_segments", "regions",
@@ -183,11 +172,28 @@ insert(
   })
 );
 
+// The generated history (PIN-0027), computed up front because stock is sized from it below.
+const generated = pricedHistory({ anchor: SEED_AT, reservedToday: orders.length, prices: productCosts });
+
+/**
+ * Stock sized to the sales it now sits beside (PIN-0031). The fixtures' `stock` described a
+ * shop selling a few units a day; against ~280 orders a day every product would read as
+ * empty within hours. Instead each keeps the story the fixtures told — vase about 3 days,
+ * lamp out, linen about 4, glasses 14, tray 21 — at the current sales rate.
+ */
+const weekAgo = new Date(SEED_AT.getTime() - 7 * 24 * 60 * 60_000).toISOString();
+const unitsLastWeek = new Map<string, number>();
+for (const order of generated.orders) {
+  if (order.placedAt < weekAgo) continue;
+  for (const line of order.lines) unitsLastWeek.set(line.sku, (unitsLastWeek.get(line.sku) ?? 0) + line.quantity);
+}
+const onHandFor = (item: (typeof inventory)[number]) => stockForDays(unitsLastWeek.get(item.sku) ?? 0, item.daysLeft ?? 0);
+
 insert(
   "inventory_levels",
   ["id", "shop_id", "product_id", "on_hand", "reserved", "days_left", "sync_state", "updated_at"],
   inventory.map((item, i) => [
-    i + 1, 1, i + 1, item.stock, item.reserved, item.daysLeft, item.sync, SEED_AT.toISOString(),
+    i + 1, 1, i + 1, onHandFor(item), item.reserved, item.daysLeft, item.sync, SEED_AT.toISOString(),
   ])
 );
 
@@ -237,11 +243,7 @@ const productIdBySkuForLines = new Map(inventory.map((item, i) => [item.sku, i +
 // `scripts/generate-history.ts` for why, and why it is deterministic. The production
 // backfill (PIN-0029) writes the same history through the same `pricedHistory`.
 {
-  const { orders: history, adDays } = pricedHistory({
-    anchor: SEED_AT,
-    reservedToday: orders.length,
-    prices: productCosts,
-  });
+  const { orders: history, adDays } = generated;
   const channelIdByCode: Record<string, number> = {
     tiktok: channelId("TikTok Shop"),
     shopee: channelId("Shopee"),
@@ -308,18 +310,7 @@ insert(
   )
 );
 
-insert(
-  "actions",
-  [
-    "id", "shop_id", "channel_label", "tone", "label", "title", "detail",
-    "impact_kind", "impact_satang", "insight", "recommendation", "detected_at", "resolved_at",
-  ],
-  actionItems.map((a) => [
-    a.id, 1, a.channel, a.tone, a.label, a.title, a.detail,
-    impactKind(a.impact), satang(a.impact), a.insight, a.recommendation,
-    at(timeIn(a.source)), null,
-  ])
-);
+// The Action Center is computed since PIN-0031 (`db/brief.ts`); `actions` stays empty.
 
 insert(
   "campaigns",

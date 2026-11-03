@@ -22,19 +22,31 @@ export type ToastTone = "success" | "demo";
 /** `demo` marks feedback for a control this prototype does not actually implement. */
 export type Notify = (message: string, tone?: ToastTone) => void;
 
+/**
+ * One card in the daily brief (PIN-0031). Computed from the shop's data by a rule — never
+ * typed in — so it has a stable `key` (rule:subject) instead of a row id, and it clears by
+ * itself when the data stops matching.
+ */
 export type ShopAction = {
-  id: number;
+  /** `stock:ML-CV-018`, `pack:late` … — what "ซ่อนถึงพรุ่งนี้" is stored against. */
+  key: string;
   tone: ActionTone;
+  /** Has to be dealt with today; sorts first and shows under "ต้องทำวันนี้". */
+  urgent: boolean;
+  /** What area the card is about: สต๊อก, ออเดอร์, แชต, โฆษณา, ต้นทุน. */
   label: string;
   title: string;
+  /** Why it appeared — the fact that triggered it. */
   detail: string;
-  impact: string;
-  /** Same amount as `impact`, for arithmetic. Absent in the fixtures. */
-  impactSatang?: number;
-  channel: string;
-  source: string;
-  insight: string;
+  /** What happens if it is skipped. */
+  consequence: string;
   recommendation: string;
+  /** A factual amount with its own label ("มูลค่า ฿4,280"), or null when none is honest. */
+  amount: string | null;
+  channel: string;
+  /** "ข้อมูลที่ใช้": what the rule read, and up to when. */
+  basis: string;
+  cta: { label: string; view: View };
 };
 
 export type InventoryItem = {
@@ -43,7 +55,8 @@ export type InventoryItem = {
   category: string;
   stock: number;
   reserved: number;
-  daysLeft: number;
+  /** Computed from 7-day sales (PIN-0031); null when the product has not sold. */
+  daysLeft: number | null;
   sync: string;
   status: "พร้อมขาย" | "ใกล้หมด" | "หมดสต๊อก";
 };

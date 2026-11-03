@@ -25,6 +25,11 @@ export const shops = sqliteTable("shops", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   createdAt: timestamp("created_at"),
+  /**
+   * Hours an order may wait as `รอแพ็ก` before the daily brief flags it (PIN-0031). The
+   * shop's own rule, not a platform deadline — those arrive with the adapters.
+   */
+  packWindowHours: integer("pack_window_hours").notNull().default(24),
 });
 
 /**
@@ -71,9 +76,7 @@ export const products = sqliteTable(
  * Split from `products` so stock can become per-channel later without a rewrite — that
  * split is the premise of the whole product.
  *
- * `daysLeft` is denormalised: it should be on_hand / sales velocity, and there is no
- * velocity data yet. `status` is absent on purpose — it is derivable from on_hand and
- * daysLeft.
+ * `status` is absent on purpose — it is derivable from on_hand and days left.
  */
 export const inventoryLevels = sqliteTable(
   "inventory_levels",
@@ -83,6 +86,7 @@ export const inventoryLevels = sqliteTable(
     productId: integer("product_id").notNull().references(() => products.id),
     onHand: integer("on_hand").notNull().default(0),
     reserved: integer("reserved").notNull().default(0),
+    /** @deprecated PIN-0031 — days left is computed from 7-day sales (`db/brief.ts`). */
     daysLeft: integer("days_left"),
     /** @deprecated PIN-0016 — superseded by `inventoryChannelSync`. Nothing reads this.
      *  Kept because migrations are additive only (spec Q4); dropping it needs the
@@ -179,6 +183,7 @@ export const messages = sqliteTable(
  * `channelLabel` stays free text because "Shopee + TikTok" is genuinely two channels, and
  * modelling that needs a join table this milestone does not.
  */
+/** @deprecated PIN-0031 — the Action Center is computed (`db/brief.ts`); nothing reads this. */
 export const actions = sqliteTable(
   "actions",
   {
@@ -471,4 +476,20 @@ export const inventoryChannelSync = sqliteTable(
     lastSyncedAt: text("last_synced_at"),
   },
   (table) => [unique("inventory_channel_sync_pair").on(table.productId, table.channelId)]
+);
+
+/**
+ * "ซ่อนถึงพรุ่งนี้" on a daily-brief card (PIN-0031). Cards are computed, so they cannot be
+ * marked done — they clear when the data does. This only hides one until `until`.
+ */
+export const actionSnoozes = sqliteTable(
+  "action_snoozes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    shopId: integer("shop_id").notNull().references(() => shops.id),
+    /** The card's rule and subject, e.g. `stock:ML-CV-018`. */
+    cardKey: text("card_key").notNull(),
+    until: text("until").notNull(),
+  },
+  (table) => [unique("action_snoozes_key").on(table.shopId, table.cardKey)]
 );
