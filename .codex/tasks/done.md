@@ -29,3 +29,5 @@
 | PIN-0025 | The channel connections screen | 7 |
 | PIN-0026 | Order lines and unit cost | 8 |
 | PIN-0027 | Profit computed, with its coverage | 8 |
+| PIN-0029 | Take PIN-0027 to production without deleting anything | 8 |
+| PIN-0031 | Computed Action Center | 9 |
