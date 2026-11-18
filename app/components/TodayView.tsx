@@ -18,11 +18,12 @@ import {
 
 import { ActionToneIcon } from "./ActionToneIcon";
 import { EmptyState } from "./EmptyState";
+import { OnboardingChecklist } from "./OnboardingChecklist";
 import { StatusPill } from "./StatusPill";
 import { trendArrow } from "../format";
 import type { DashboardMetrics, Notify, Payout, ShopAction, Trend, View } from "../types";
 
-export function TodayView({ period, signedInAs, actions, metrics, payouts, canSeeFinance, onOpenAction, onViewActions, onNavigate, notify }: { period: string; signedInAs: string; actions: ShopAction[]; metrics: DashboardMetrics; payouts: Payout[]; canSeeFinance: boolean; onOpenAction: (action: ShopAction) => void; onViewActions: () => void; onNavigate: (view: View) => void; notify: Notify }) {
+export function TodayView({ period, signedInAs, checklistClosed, actions, metrics, payouts, canSeeFinance, onOpenAction, onViewActions, onNavigate, notify }: { period: string; signedInAs: string; checklistClosed: boolean; actions: ShopAction[]; metrics: DashboardMetrics; payouts: Payout[]; canSeeFinance: boolean; onOpenAction: (action: ShopAction) => void; onViewActions: () => void; onNavigate: (view: View) => void; notify: Notify }) {
   const data = metrics.periods[period];
   const { asOf } = metrics;
   // "วันนี้" must not mean a day that has passed: if the last sync was earlier, name its day.
@@ -43,6 +44,8 @@ export function TodayView({ period, signedInAs, actions, metrics, payouts, canSe
         <div><h2>ยินดีต้อนรับกลับ {signedInAs}!</h2><p>ดูสุขภาพร้านและจัดการเรื่องสำคัญได้จากที่เดียว</p></div>
         {canSeeFinance && <button className="primary-button add-cost-button icon-text-button" onClick={() => onNavigate("stock")}><Plus size={17} />เพิ่มข้อมูลต้นทุน</button>}
       </section>
+
+      {canSeeFinance && !checklistClosed && <OnboardingChecklist metrics={metrics} onNavigate={onNavigate} notify={notify} />}
 
       <div className="today-layout">
         <div className="today-main">

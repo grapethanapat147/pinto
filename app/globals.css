@@ -734,6 +734,18 @@ button.stock-row:hover { background: #fdfaf8; }
 .stock-row > span:first-child { position: sticky; left: 0; z-index: 1; align-self: stretch; display: flex; flex-direction: column; justify-content: center; background: var(--surface); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
+/* PIN-0032: new-seller checklist at the top of Today (owners only). */
+.onboarding-panel { margin-bottom: 18px; padding: 24px 27px 27px; }
+.onboarding-close { width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
+.onboarding-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.onboarding-steps li { display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 4px 10px; padding: 14px; border: 1px solid var(--line); border-radius: var(--radius-card); }
+.onboarding-steps li > :not(.onboarding-tick) { grid-column: 2; }
+.onboarding-steps li .quiet-button { justify-self: start; padding: 0; border: 0; background: none; cursor: pointer; }
+.onboarding-steps small { color: var(--muted); font-size: 13px; }
+.onboarding-tick { grid-row: span 2; width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid var(--line); border-radius: 50%; }
+.onboarding-steps li.done .onboarding-tick { border-color: var(--brand); background: var(--brand); color: var(--surface); }
+.onboarding-steps li.locked { opacity: .6; }
+
 /* ---------------------------------------------------------------------------
  * Responsive layer (PIN-0019).
  *
@@ -840,6 +852,8 @@ button.stock-row:hover { background: #fdfaf8; }
   .action-list-item > strong { grid-column: 2; }.action-list-item > .row-arrow { grid-column: 3; grid-row: 1 / span 2; }
   /* a pinned 220px name column would leave a phone almost nothing to scroll */
   .stock-row > span:first-child { position: static; }
+  .onboarding-steps { grid-template-columns: 1fr; }
+  .onboarding-panel { padding-inline: 20px; }
   .compact-action-list small { white-space: normal; }
 }
 

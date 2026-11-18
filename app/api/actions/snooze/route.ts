@@ -1,4 +1,4 @@
-import { nextBangkokMidnight, parseCardKey, RULES } from "../../../../db/brief";
+import { FOREVER, nextBangkokMidnight, parseCardKey, RULES } from "../../../../db/brief";
 import { snoozeCard } from "../../../../db/mutations";
 import { getSession } from "../../../session";
 
@@ -29,7 +29,8 @@ export async function POST(request: Request) {
     return Response.json({ error: "not allowed" }, { status: 403 });
   }
 
-  const until = nextBangkokMidnight(Date.now());
+  // the checklist is closed for good; a card only until tomorrow
+  const until = card.rule === "checklist" ? FOREVER : nextBangkokMidnight(Date.now());
   try {
     await snoozeCard(session, card.key, until);
     return Response.json({ snoozed: true, until });

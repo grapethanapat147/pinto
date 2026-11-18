@@ -1194,6 +1194,55 @@ test("a first cost without the fill leaves history as it was", async () => {
   });
 });
 
+/** PIN-0032: the new-seller checklist. Ticks come from data; only "ปิด" is stored. */
+const CHECKLIST = /อีกนิดเดียวก็เห็นกำไรจริงของร้าน/;
+const progressOf = (html) => stripComments(html).match(/ทำแล้ว (\d) จาก 2 ขั้น/)?.[1];
+
+test("the checklist is the owner's, and its ticks are read from data", async () => {
+  await withFreshDb(async (db) => {
+    const owner = await (await render("/", { cookie: await signIn("owner") })).text();
+    assert.match(owner, CHECKLIST);
+    assert.equal(progressOf(owner), "1", "a channel has synced; the linen is uncosted");
+    assert.doesNotMatch(await (await render("/", { cookie: await signIn("staff") })).text(), CHECKLIST, "staff never get it");
+
+    // no sync at all: neither step is done
+    await db.prepare("UPDATE channel_health SET last_synced_at = NULL").bind().run();
+    assert.equal(progressOf(await (await render("/", { cookie: await signIn("owner") })).text()), "0");
+  });
+});
+
+test("the checklist goes once the shop is connected and fully costed", async () => {
+  await withFreshDb(async () => {
+    const response = await postCost("ML-LN-012", { cost: 240, fillPast: true });
+    assert.equal(response.status, 200);
+    assert.doesNotMatch(await (await render("/", { cookie: await signIn("owner") })).text(), CHECKLIST);
+  });
+});
+
+test("closing the checklist is stored for good, and only an owner can", async () => {
+  await withFreshDb(async (db) => {
+    const staff = await fetchWorker("/api/actions/snooze", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: await signIn("staff") },
+      body: JSON.stringify({ key: "checklist:onboarding" }),
+    });
+    assert.equal(staff.status, 403);
+
+    const cookie = await signIn("owner");
+    const response = await fetchWorker("/api/actions/snooze", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({ key: "checklist:onboarding" }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).until, "9999-12-31T00:00:00.000Z", "not until tomorrow, like a card");
+    assert.doesNotMatch(await (await render("/", { cookie })).text(), CHECKLIST);
+
+    const { n } = await db.prepare("SELECT COUNT(*) AS n FROM action_snoozes WHERE card_key = 'checklist:onboarding'").bind().first();
+    assert.equal(n, 1);
+  });
+});
+
 test("staff never receive finance data, owners do", async () => {
   const ownerHtml = await (await render("/", { cookie: await signIn("owner") })).text();
   const staffHtml = await (await render("/", { cookie: await signIn("staff") })).text();

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "./components/AppShell";
 import { DataUnavailable } from "./components/DataUnavailable";
 import { getSession } from "./session";
-import { listBrief } from "../db/brief";
+import { checklistDismissed, listBrief } from "../db/brief";
 import {
   listCampaigns,
   listConversations,
@@ -36,7 +36,7 @@ async function loadDashboard() {
     // component, and anything sent to it is readable however the nav is drawn.
     const canSeeFinance = session.role === "owner";
 
-    const [shop, orders, orderTotal, inventory, actions, conversations, campaigns, payouts, metrics, recommendations, channelSync, connections] =
+    const [shop, orders, orderTotal, inventory, actions, conversations, campaigns, payouts, checklistClosed, metrics, recommendations, channelSync, connections] =
       await Promise.all([
         shopName(session),
         listOrders(session),
@@ -47,6 +47,8 @@ async function loadDashboard() {
         listConversations(session),
         listCampaigns(session),
         canSeeFinance ? listPayouts(session) : Promise.resolve([]),
+        // the new-seller checklist is owner-only (PIN-0032); staff are treated as closed
+        canSeeFinance ? checklistDismissed(session) : Promise.resolve(true),
         listDashboardMetrics(session),
         listRecommendations(session),
         listChannelSync(session),
@@ -72,6 +74,7 @@ async function loadDashboard() {
       conversations,
       campaigns,
       payouts,
+      checklistClosed,
       metrics,
       recommendations,
       channelSync,
@@ -106,6 +109,7 @@ export default async function Page() {
       conversations={data.conversations}
       campaigns={data.campaigns}
       payouts={data.payouts}
+      checklistClosed={data.checklistClosed}
       metrics={data.metrics}
       recommendations={data.recommendations}
       signedInAs={data.signedInAs}

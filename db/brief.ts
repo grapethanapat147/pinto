@@ -41,6 +41,8 @@ export const RULES = {
   chat: { ownerOnly: false },
   ads: { ownerOnly: true },
   cost: { ownerOnly: true },
+  // not a card: the new-seller checklist's "ปิด" (PIN-0032), stored the same way
+  checklist: { ownerOnly: true },
 } as const;
 export type Rule = keyof typeof RULES;
 
@@ -56,6 +58,18 @@ export function parseCardKey(key: unknown): { rule: Rule; key: string } | null {
 export function daysLeftOf(onHand: number, unitsPerDay: number | undefined): number | null {
   if (!unitsPerDay) return null;
   return onHand / unitsPerDay;
+}
+
+/** The new-seller checklist's dismissal (PIN-0032): a snooze that never ends. */
+export const CHECKLIST_KEY = "checklist:onboarding";
+export const FOREVER = "9999-12-31T00:00:00.000Z";
+
+export async function checklistDismissed(session: SessionUser): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ key: actionSnoozes.cardKey })
+    .from(actionSnoozes)
+    .where(and(eq(actionSnoozes.shopId, session.shopId), eq(actionSnoozes.cardKey, CHECKLIST_KEY)));
+  return Boolean(row);
 }
 
 /** Next Bangkok midnight after `now` — when "ซ่อนถึงพรุ่งนี้" ends. */

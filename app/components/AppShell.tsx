@@ -39,6 +39,7 @@ export function AppShell({
   conversations,
   campaigns,
   payouts,
+  checklistClosed,
   metrics,
   recommendations,
   signedInAs,
@@ -55,6 +56,8 @@ export function AppShell({
   conversations: Conversation[];
   campaigns: Campaign[];
   payouts: Payout[];
+  /** The new-seller checklist was dismissed, or this is staff (PIN-0032). */
+  checklistClosed: boolean;
   metrics: DashboardMetrics;
   recommendations: Record<string, RecommendationPanel>;
   signedInAs: string;
@@ -142,7 +145,7 @@ export function AppShell({
         />
 
         <div className="page-body">
-          {view === "today" && <TodayView period={period} signedInAs={signedInAs} actions={activeActions.slice(0, 3)} metrics={metrics} payouts={payouts} canSeeFinance={canSeeFinance} onOpenAction={setSelectedAction} onViewActions={() => changeView("actions")} onNavigate={changeView} notify={notify} />}
+          {view === "today" && <TodayView period={period} signedInAs={signedInAs} checklistClosed={checklistClosed} actions={activeActions.slice(0, 3)} metrics={metrics} payouts={payouts} canSeeFinance={canSeeFinance} onOpenAction={setSelectedAction} onViewActions={() => changeView("actions")} onNavigate={changeView} notify={notify} />}
           {view === "actions" && (
             <ActionsView
               actions={visibleActions}
