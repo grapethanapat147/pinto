@@ -32,3 +32,4 @@
 | PIN-0029 | Take PIN-0027 to production without deleting anything | 8 |
 | PIN-0031 | Computed Action Center | 9 |
 | PIN-0028 | Edit unit cost on the Stock view | 9 |
+| PIN-0032 | New-seller checklist | 9 |
