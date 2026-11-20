@@ -6,11 +6,11 @@ import { StatusPill } from "./StatusPill";
 import { viewTitles } from "../fixtures/navigation";
 import type { Notify, View } from "../types";
 
-export function AppTopbar({ view, period, activeCount, onChangePeriod, onOpenActions, notify }: { view: View; period: string; activeCount: number; onChangePeriod: (period: string) => void; onOpenActions: () => void; notify: Notify }) {
+export function AppTopbar({ view, kickers, period, activeCount, onChangePeriod, onOpenActions, notify }: { view: View; kickers: Partial<Record<View, string>>; period: string; activeCount: number; onChangePeriod: (period: string) => void; onOpenActions: () => void; notify: Notify }) {
   return (
     <header className="topbar">
       <div>
-        <div className="kicker-row"><p>{viewTitles[view].kicker}</p><StatusPill tone="demo">ข้อมูลจำลอง</StatusPill></div>
+        <div className="kicker-row"><p>{kickers[view] ?? viewTitles[view].kicker}</p><StatusPill tone="demo">ข้อมูลจำลอง</StatusPill></div>
         <h1><HomeIcon className="home-mark" size={18} strokeWidth={1.9} />{viewTitles[view].title}</h1>
       </div>
       <div className="top-actions">

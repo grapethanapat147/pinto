@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus, Search, Truck } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
-import { StatusPill } from "./StatusPill";
+import { ExampleTag, StatusPill } from "./StatusPill";
 import type { MetricTile, Notify, Order } from "../types";
 
 export function OrdersView({ query, setQuery, orders: visibleOrders, shown, total, tiles, notify }: { query: string; setQuery: (value: string) => void; orders: Order[]; shown: number; total: number; tiles: MetricTile[]; notify: Notify }) {
@@ -15,7 +15,7 @@ export function OrdersView({ query, setQuery, orders: visibleOrders, shown, tota
     <>
       <section className="order-metrics compact-metrics">
         {tiles.map((tile) => (
-          <article key={tile.key}><p>{tile.label}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
+          <article key={tile.key}><p>{tile.label}{tile.example && <> <ExampleTag /></>}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
         ))}
       </section>
       <section className="panel data-panel">

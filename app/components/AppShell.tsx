@@ -137,6 +137,7 @@ export function AppShell({
       <section className="content">
         <AppTopbar
           view={view}
+          kickers={metrics.kickers}
           period={period}
           activeCount={activeActions.length}
           onChangePeriod={setPeriod}

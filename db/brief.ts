@@ -72,6 +72,11 @@ export async function checklistDismissed(session: SessionUser): Promise<boolean>
   return Boolean(row);
 }
 
+/** Units to order so the stock covers `RESTOCK_COVER_DAYS` at the current rate — the brief and Stock's list agree. */
+export function restockQuantity(onHand: number, unitsPerDay: number): number {
+  return Math.max(1, Math.ceil(unitsPerDay * RESTOCK_COVER_DAYS - Math.max(onHand, 0)));
+}
+
 /** Next Bangkok midnight after `now` — when "ซ่อนถึงพรุ่งนี้" ends. */
 export function nextBangkokMidnight(now: number): string {
   return new Date(bangkokDayStart(now) + DAY_MS).toISOString();
@@ -139,7 +144,7 @@ export async function listBrief(session: SessionUser, now: number = Date.now()):
     if (!out && (daysLeft === null || daysLeft >= STOCK_WARN_DAYS)) continue;
 
     const perDay = rate ? `ขายเฉลี่ย ${oneDecimal(rate.unitsPerDay)} ชิ้น/วัน (${VELOCITY_DAYS} วันล่าสุด)` : `ไม่มียอดขายใน ${VELOCITY_DAYS} วันล่าสุด`;
-    const need = rate ? Math.max(1, Math.ceil(rate.unitsPerDay * RESTOCK_COVER_DAYS - Math.max(row.onHand, 0))) : null;
+    const need = rate ? restockQuantity(row.onHand, rate.unitsPerDay) : null;
     const urgent = out || (daysLeft !== null && daysLeft < STOCK_URGENT_DAYS);
     cards.push({
       key: `stock:${row.sku}`,

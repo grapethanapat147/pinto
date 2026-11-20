@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CircleCheck, RefreshCw, Send, ShoppingCart, Sparkles } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
+import { ExampleTag } from "./StatusPill";
 import type { Conversation, MetricTile, Notify } from "../types";
 
 export function InboxView({ conversations, tiles, notify }: { conversations: Conversation[]; tiles: MetricTile[]; notify: Notify }) {
@@ -58,7 +59,7 @@ export function InboxView({ conversations, tiles, notify }: { conversations: Con
     <>
       <section className="compact-metrics inbox-metrics">
         {tiles.map((tile) => (
-          <article key={tile.key}><p>{tile.label}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
+          <article key={tile.key}><p>{tile.label}{tile.example && <> <ExampleTag /></>}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
         ))}
       </section>
 

@@ -38,14 +38,15 @@ export function isVisibleTo(item: NavItem, canSeeFinance: boolean): boolean {
   return canSeeFinance || !OWNER_ONLY.includes(item.id);
 }
 
+/** Kickers with a number are replaced by `metrics.kickers` (PIN-0030); these are the fallbacks. */
 export const viewTitles: Record<View, ViewTitle> = {
   today: { kicker: "หน้าหลัก", title: "ภาพรวมร้าน" },
   actions: { kicker: "Action Center", title: "เรื่องที่รอการตัดสินใจ" },
-  orders: { kicker: "284 ออเดอร์วันนี้", title: "ออเดอร์ทุกช่องทาง" },
-  inbox: { kicker: "12 ข้อความรอตอบ", title: "กล่องข้อความลูกค้า" },
-  stock: { kicker: "สินค้า 186 รายการ", title: "สินค้าและสต๊อก" },
+  orders: { kicker: "ออเดอร์", title: "ออเดอร์ทุกช่องทาง" },
+  inbox: { kicker: "ข้อความลูกค้า", title: "กล่องข้อความลูกค้า" },
+  stock: { kicker: "สินค้า", title: "สินค้าและสต๊อก" },
   growth: { kicker: "การตลาดและยอดขาย", title: "เติบโตแบบมีกำไร" },
-  customers: { kicker: "ลูกค้า 3,842 คน", title: "เข้าใจและดูแลลูกค้า" },
+  customers: { kicker: "ลูกค้า", title: "เข้าใจและดูแลลูกค้า" },
   money: { kicker: "ข้อมูลการเงินล่าสุด", title: "เงินเข้า เงินออก และกำไรจริง" },
   connections: { kicker: "ตั้งค่าร้าน", title: "เชื่อมต่อช่องทางขาย" },
 };

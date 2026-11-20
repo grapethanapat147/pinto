@@ -107,6 +107,8 @@ export type Campaign = {
 };
 
 export type Payout = {
+  /** ISO date the payout is expected — for the calendar's dots. */
+  expectedOn: string;
   platform: string;
   accent: string;
   date: string;
@@ -123,6 +125,8 @@ export type MetricTile = {
   value: string;
   note: string;
   trend?: "up" | "down" | "warning";
+  /** No data behind it yet (PIN-0030): shown with a "ตัวอย่าง" label, never as a fact. */
+  example?: boolean;
 };
 
 export type Trend = "up" | "down" | "flat";
@@ -159,6 +163,8 @@ export type AsOf = {
   isToday: boolean;
   /** False when no channel has ever synced; the figures then run to the clock. */
   synced: boolean;
+  /** The anchor's Bangkok date, "2026-09-12" — the month the calendar shows. */
+  date: string;
 };
 export type ChannelRow = { channel: string; code: string; sales: string; orders: string; profit: string; margin: string };
 export type SegmentRow = { key: string; label: string; count: string; note: string };
@@ -170,6 +176,10 @@ export type OpportunityRow = { name: string; metric: string; profit: string; acc
 
 export type DashboardMetrics = {
   asOf: AsOf;
+  /** Topbar kickers computed from data (PIN-0030); views missing here keep their fixed text. */
+  kickers: Partial<Record<View, string>>;
+  /** Eight weeks to the anchor, oldest first; heights are % of the tallest bar. */
+  weekly: { label: string; profit: number; cost: number }[];
   periods: Record<string, PeriodFigures>;
   /** Products with no cost yet, by name — what a partial profit figure is missing. */
   uncosted: string[];
@@ -220,7 +230,7 @@ export type ChannelSyncRow = {
 
 export type SeedOrder = Omit<Order, "channelAccent">;
 export type SeedConversation = Omit<Conversation, "channelAccent">;
-export type SeedPayout = Omit<Payout, "accent">;
+export type SeedPayout = Omit<Payout, "accent" | "expectedOn">;
 
 export type RecommendationPanel = {
   scope: string;

@@ -3,7 +3,7 @@
 import { AlertTriangle, ArrowRight, Check } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
-import { StatusPill } from "./StatusPill";
+import { ExampleTag, StatusPill } from "./StatusPill";
 import { trendArrow } from "../format";
 import type { DashboardMetrics, Notify, Payout } from "../types";
 
@@ -19,8 +19,8 @@ export function MoneyView({ payouts, metrics, notify, onAddCost }: { payouts: Pa
     <>
       <section className="money-hero">
         <article><p>{profit?.label}</p><h2>{profit?.value}</h2><small className={`delta delta-${today.changeTrend}`}>{trendArrow(today.changeTrend)} {today.change}</small><small>{profit?.note}</small></article>
-        <article><p>{withdrawable?.label}</p><h2>{withdrawable?.value}</h2><button className="primary-button" onClick={() => notify("ตัวอย่าง — ยังไม่มีการถอนเงินจริง", "demo")}>ดูรายละเอียด</button></article>
-        <article><p>{pending?.label}</p><h2>{pending?.value}</h2><div className="mini-payout">{(pending?.note ?? "").split(" · ").map((part) => <span key={part}>{part}</span>)}</div></article>
+        <article><p>{withdrawable?.label}{withdrawable?.example && <> <ExampleTag /></>}</p><h2>{withdrawable?.value}</h2><button className="primary-button" onClick={() => notify("ตัวอย่าง — ยังไม่มีการถอนเงินจริง", "demo")}>ดูรายละเอียด</button></article>
+        <article><p>{pending?.label}{pending?.example && <> <ExampleTag /></>}</p><h2>{pending?.value}</h2><div className="mini-payout">{(pending?.note ?? "").split(" · ").map((part) => <span key={part}>{part}</span>)}</div></article>
       </section>
       <section className="money-layout">
         <article className="panel waterfall-panel">
@@ -39,7 +39,7 @@ export function MoneyView({ payouts, metrics, notify, onAddCost }: { payouts: Pa
         )}
       </section>
       <section className="panel payout-panel">
-        <div className="panel-heading"><div><p>กำหนดการรับเงิน</p><h3>เงินที่แพลตฟอร์มกำลังจะโอน</h3></div><button className="secondary-button" onClick={() => notify("ตัวอย่าง — การดาวน์โหลดรายงานยังไม่เปิดใช้งาน", "demo")}>ดาวน์โหลดรายงาน</button></div>
+        <div className="panel-heading"><div><p>กำหนดการรับเงิน <ExampleTag /></p><h3>เงินที่แพลตฟอร์มกำลังจะโอน</h3></div><button className="secondary-button" onClick={() => notify("ตัวอย่าง — การดาวน์โหลดรายงานยังไม่เปิดใช้งาน", "demo")}>ดาวน์โหลดรายงาน</button></div>
         <div className="payout-table table-scroll">
           <div className="payout-row payout-head"><span>แพลตฟอร์ม</span><span>วันที่คาดว่าจะเข้า</span><span>รายการ</span><span>สถานะ</span><span>ยอดสุทธิ</span></div>
           {payouts.map((payout) => <div className="payout-row" key={payout.platform}><strong>{payout.platform}</strong><span>{payout.date}</span><span>{payout.orders}</span><StatusPill tone={payout.status === "ยืนยันแล้ว" ? "good" : "neutral"}>{payout.status}</StatusPill><strong>{payout.amount}</strong></div>)}

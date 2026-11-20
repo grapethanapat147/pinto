@@ -746,6 +746,9 @@ button.stock-row:hover { background: #fdfaf8; }
 .onboarding-steps li.done .onboarding-tick { border-color: var(--brand); background: var(--brand); color: var(--surface); }
 .onboarding-steps li.locked { opacity: .6; }
 
+/* PIN-0030: blocks with no data behind them say so. */
+.example-note { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+
 /* ---------------------------------------------------------------------------
  * Responsive layer (PIN-0019).
  *

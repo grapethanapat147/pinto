@@ -341,6 +341,7 @@ export const waterfallSteps = sqliteTable("waterfall_steps", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+/** @deprecated PIN-0030 — computed from sales in `listDashboardMetrics`; nothing reads this. */
 export const restockSuggestions = sqliteTable("restock_suggestions", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   shopId: integer("shop_id").notNull().references(() => shops.id),
@@ -349,6 +350,7 @@ export const restockSuggestions = sqliteTable("restock_suggestions", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+/** @deprecated PIN-0030 — computed from sales in `listDashboardMetrics`; nothing reads this. */
 export const productOpportunities = sqliteTable("product_opportunities", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   shopId: integer("shop_id").notNull().references(() => shops.id),

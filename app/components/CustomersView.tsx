@@ -2,6 +2,7 @@
 
 import { ArrowRight, Clock3, Crown, Repeat2, Sparkles } from "lucide-react";
 
+import { ExampleTag } from "./StatusPill";
 import type { DashboardMetrics, Notify, RecommendationPanel } from "../types";
 
 const SEGMENT_ICON: Record<string, typeof Crown> = { best: Crown, repeat: Repeat2, sleeping: Clock3 };
@@ -10,6 +11,8 @@ const SEGMENT_CTA: Record<string, string> = { best: "ดูรายชื่อ
 export function CustomersView({ metrics, recommendation, notify }: { metrics: DashboardMetrics; recommendation?: RecommendationPanel; notify: Notify }) {
   return (
     <>
+      {/* segments come from fixtures: there is no customer history to group by (PIN-0030) */}
+      <p className="example-note"><ExampleTag /> กลุ่มลูกค้าด้านล่างเป็นตัวอย่าง ยังไม่มีข้อมูลลูกค้าให้จัดกลุ่ม</p>
       <section className="customer-segments">
         {metrics.segments.map((segment) => {
           const Icon = SEGMENT_ICON[segment.key] ?? Crown;
@@ -24,13 +27,13 @@ export function CustomersView({ metrics, recommendation, notify }: { metrics: Da
       </section>
       <section className="customer-layout">
         <article className="panel region-panel">
-          <div className="panel-heading"><div><p>พื้นที่ยอดนิยม</p><h3>ลูกค้าของคุณอยู่ที่ไหน</h3></div><button className="quiet-button" onClick={() => notify("ตัวอย่าง — หน้าพื้นที่ทั้งหมดยังไม่เปิดใช้งาน", "demo")}>ดูทั้งหมด</button></div>
+          <div className="panel-heading"><div><p>พื้นที่ยอดนิยม <ExampleTag /></p><h3>ลูกค้าของคุณอยู่ที่ไหน</h3></div><button className="quiet-button" onClick={() => notify("ตัวอย่าง — หน้าพื้นที่ทั้งหมดยังไม่เปิดใช้งาน", "demo")}>ดูทั้งหมด</button></div>
           <div className="region-list">{metrics.regions.map((region) => (
             <Region key={region.name} name={region.name} value={region.value} width={region.width} />
           ))}</div>
         </article>
         <article className="panel customer-insight">
-          <span className="spark dark"><Sparkles size={20} /></span><p>{recommendation?.kicker}</p><h3>{recommendation?.title}</h3><p>{recommendation?.body}</p><div className="customer-value"><span>{recommendation?.figureLabel}</span><strong>{recommendation?.figureValue}</strong></div><button className="primary-button wide" onClick={() => notify("ตัวอย่าง — การสร้างกลุ่มลูกค้ายังไม่เปิดใช้งาน", "demo")}>{recommendation?.cta}</button>
+          <span className="spark dark"><Sparkles size={20} /></span><p>{recommendation?.kicker} <ExampleTag /></p><h3>{recommendation?.title}</h3><p>{recommendation?.body}</p><div className="customer-value"><span>{recommendation?.figureLabel}</span><strong>{recommendation?.figureValue}</strong></div><button className="primary-button wide" onClick={() => notify("ตัวอย่าง — การสร้างกลุ่มลูกค้ายังไม่เปิดใช้งาน", "demo")}>{recommendation?.cta}</button>
         </article>
       </section>
     </>

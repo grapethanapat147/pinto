@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ShoppingCart, Sparkles } from "lucide-react";
 
 import { EmptyState } from "./EmptyState";
-import { StatusPill } from "./StatusPill";
+import { ExampleTag, StatusPill } from "./StatusPill";
 import { formatBaht } from "../format";
 import type { ChannelSyncRow, DashboardMetrics, InventoryItem, Notify, RecommendationPanel } from "../types";
 
@@ -90,7 +90,7 @@ export function StockView({ inventory, metrics, channelSync, recommendation, not
     <>
       <section className="compact-metrics stock-metrics">
         {tiles.map((tile) => (
-          <article key={tile.key}><p>{tile.label}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
+          <article key={tile.key}><p>{tile.label}{tile.example && <> <ExampleTag /></>}</p><h3 className={tile.trend === "warning" ? "text-warning" : undefined}>{tile.value}</h3><small className={tile.trend === "up" ? "up" : tile.trend === "down" ? "down" : undefined}>{tile.note}</small></article>
         ))}
       </section>
 
@@ -114,7 +114,7 @@ export function StockView({ inventory, metrics, channelSync, recommendation, not
         </article>
 
         <aside className="panel stock-insight">
-          <span className="spark dark"><Sparkles size={20} /></span><p>{recommendation?.kicker}</p><h3>{recommendation?.title}</h3><p>{recommendation?.body}</p>
+          <span className="spark dark"><Sparkles size={20} /></span><p>{recommendation?.kicker} <ExampleTag /></p><h3>{recommendation?.title}</h3><p>{recommendation?.body}</p>
           <div className="restock-list">{metrics.restock.map((item) => (
             <div key={item.name}><span>{item.name}</span><strong>{item.quantity}</strong></div>
           ))}</div>

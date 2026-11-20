@@ -10,8 +10,8 @@ import { getDb } from "./index";
 import {
   campaigns, channels, conversations, customerSegments,
   inventoryChannelSync,
-  dashboardMetrics, inventoryLevels, messages, orderLines, orders, payouts, productOpportunities,
-  products, recommendations, regions, restockSuggestions, shops,
+  dashboardMetrics, inventoryLevels, messages, orderLines, orders, payouts,
+  products, recommendations, regions, shops,
 } from "./schema";
 import {
   bangkokDay, formatBaht, formatChange, formatCompactBaht, formatMessageStamp, formatPercent,
@@ -21,8 +21,8 @@ import type {
   Campaign, ChannelConnection, ChannelSyncRow, Conversation, DashboardMetrics, InventoryItem,
   Order, PeriodFigures, Payout, RecommendationPanel,
 } from "../app/types";
-import { coverageOf, loadAnchor, loadPerformance, PERIODS, profitOf, salesVelocity, windowsFor, type PeriodPerformance } from "./performance";
-import { daysLeftOf, STOCK_WARN_DAYS } from "./brief";
+import { bangkokDayStart, coverageOf, loadAnchor, loadPerformance, PERIODS, profitOf, salesVelocity, weeklySeries, windowsFor, type PeriodPerformance } from "./performance";
+import { daysLeftOf, restockQuantity, STOCK_WARN_DAYS } from "./brief";
 
 /**
  * Every read takes the caller's session and scopes to `session.shopId`.
@@ -269,6 +269,7 @@ export async function listPayouts(session: SessionUser): Promise<Payout[]> {
     .orderBy(asc(payouts.expectedOn));
 
   return rows.map((row) => ({
+    expectedOn: row.expectedOn,
     platform: row.platform,
     accent: row.accent,
     date: formatThaiDay(row.expectedOn),
@@ -315,32 +316,35 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
   const db = getDb();
   const where = eq(dashboardMetrics.shopId, session.shopId);
 
-  const [metricRows, segmentRows, regionRows, restockRows, opportunityRows, performance, known] =
+  const [metricRows, segmentRows, regionRows, performance, known, inventory] =
     await Promise.all([
       db.select().from(dashboardMetrics).where(where).orderBy(asc(dashboardMetrics.sortOrder)),
       db.select().from(customerSegments).where(eq(customerSegments.shopId, session.shopId)).orderBy(asc(customerSegments.sortOrder)),
       db.select().from(regions).where(eq(regions.shopId, session.shopId)).orderBy(asc(regions.sortOrder)),
-      db
-        .select({ name: products.name, quantity: restockSuggestions.suggestedQuantity })
-        .from(restockSuggestions)
-        .innerJoin(products, eq(products.id, restockSuggestions.productId))
-        .where(eq(restockSuggestions.shopId, session.shopId))
-        .orderBy(asc(restockSuggestions.sortOrder)),
-      db
-        .select({
-          name: products.name,
-          growthPercent: productOpportunities.growthPercent,
-          profitSatang: productOpportunities.profitSatang,
-          accent: productOpportunities.accent,
-        })
-        .from(productOpportunities)
-        .innerJoin(products, eq(products.id, productOpportunities.productId))
-        .where(eq(productOpportunities.shopId, session.shopId))
-        .orderBy(asc(productOpportunities.sortOrder)),
       loadPerformance(session),
       loadChannels(session),
+      db
+        .select({
+          productId: products.id,
+          name: products.name,
+          onHand: inventoryLevels.onHand,
+          unitCostSatang: products.unitCostSatang,
+        })
+        .from(inventoryLevels)
+        .innerJoin(products, eq(products.id, inventoryLevels.productId))
+        .where(eq(inventoryLevels.shopId, session.shopId))
+        .orderBy(asc(inventoryLevels.id)),
     ]);
-  const statusCounts = await orderStatusCounts(session, performance.anchor.getTime());
+  const anchor = performance.anchor.getTime();
+  const anchorIso = performance.anchor.toISOString();
+  const [statusCounts, figures, velocity, priorVelocity, weekly] = await Promise.all([
+    orderStatusCounts(session, anchor),
+    shopFigures(session, anchor),
+    salesVelocity(session, anchor),
+    salesVelocity(session, anchor - 7 * 24 * 60 * 60_000),
+    weeklySeries(session, anchor, 8),
+  ]);
+  const isOwner = session.role === "owner";
 
   const render = (row: (typeof metricRows)[number]): string => {
     if (row.unit === "satang") return formatBaht(row.valueSatang ?? 0);
@@ -359,11 +363,54 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
    * Tiles whose figure is now computed. The stored row still supplies the label and sort
    * order; value and note come from here, so a stale stored number cannot reach the screen.
    */
-  const anchorIso = performance.anchor.toISOString();
   const isToday = bangkokDay(anchorIso) === bangkokDay(new Date().toISOString());
-  const computed: Record<string, Record<string, { label?: string; value: string; note: string; trend?: "up" | "down" | "warning" }>> = {
+
+  // Stock, from the same days-left the brief and the Stock view use (PIN-0030).
+  const stock = inventory.map((row) => {
+    const daysLeft = daysLeftOf(row.onHand, velocity.get(row.productId)?.unitsPerDay);
+    return { ...row, daysLeft, status: stockStatus(row.onHand, daysLeft) };
+  });
+  const countOf = (status: InventoryItem["status"]) => stock.filter((row) => row.status === status).length;
+  const lowOrOut = countOf("ใกล้หมด") + countOf("หมดสต๊อก");
+  const uncostedStock = stock.filter((row) => row.unitCostSatang === null).length;
+  const stockValue = stock.reduce((sum, row) => sum + Math.max(row.onHand, 0) * (row.unitCostSatang ?? 0), 0);
+  // ROAS over the channels that advertised today: their sales ÷ their spend. No target exists.
+  const advertised = [...performance.channels.values()].filter((totals) => totals.adsSatang > 0);
+  const adSpendToday = advertised.reduce((sum, totals) => sum + totals.adsSatang, 0);
+  const adChannelSales = advertised.reduce((sum, totals) => sum + totals.salesSatang, 0);
+  const example = { value: "", note: "", example: true } as const;
+  const computed: Record<string, Record<string, { label?: string; value: string; note: string; trend?: "up" | "down" | "warning"; example?: boolean }>> = {
     today: {
       quick_pack: { value: String(statusCounts.toPack), note: `${statusCounts.toPack.toLocaleString("en-US")} รายการรอแพ็ก` },
+      quick_reply: { value: String(figures.unread), note: `${figures.unread.toLocaleString("en-US")} ข้อความรอตอบ` },
+      quick_restock: { value: String(lowOrOut), note: `${lowOrOut.toLocaleString("en-US")} รายการใกล้หมดหรือหมด` },
+      quick_campaign: { value: todayFigures.ads, note: `ค่าโฆษณา ${todayFigures.ads}` },
+      pending_payout: example,
+    },
+    stock: {
+      sellable: { value: countOf("พร้อมขาย").toLocaleString("en-US"), note: `จากทั้งหมด ${stock.length.toLocaleString("en-US")} สินค้า`, trend: "up" },
+      low: { value: countOf("ใกล้หมด").toLocaleString("en-US"), note: "จะหมดภายใน 7 วันตามยอดขาย", trend: "warning" },
+      out: { value: countOf("หมดสต๊อก").toLocaleString("en-US"), note: "ขายไม่ได้ทุกช่องทาง", trend: "warning" },
+      value: {
+        label: "มูลค่าสต๊อก (ทุน)",
+        value: formatBaht(stockValue),
+        note: uncostedStock ? `ไม่รวม ${uncostedStock} สินค้าที่ยังไม่มีต้นทุน` : "คิดจากต้นทุนต่อชิ้น",
+      },
+    },
+    inbox: {
+      today: { value: figures.messagesToday.toLocaleString("en-US"), note: "ทุกช่องทาง" },
+      waiting: { value: figures.unread.toLocaleString("en-US"), note: `จาก ${figures.unreadChats.toLocaleString("en-US")} แชต`, trend: "warning" },
+      response_time: example,
+      chat_sales: example,
+    },
+    growth: {
+      ad_sales: example,
+      ad_spend: { value: formatBaht(adSpendToday), note: `${advertised.length} ช่องทางที่ลงโฆษณา` },
+      roas: {
+        value: adSpendToday > 0 ? formatRoas(adSpendToday, adChannelSales) : "—",
+        note: "ยอดขายช่องทางที่ลงโฆษณา ÷ ค่าโฆษณา",
+      },
+      ad_profit: example,
     },
     orders: {
       new: {
@@ -383,20 +430,27 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
         note: todayFigures.partial ? `ต้นทุนครบ ${todayFigures.coverage} ของยอดขาย` : "ต้นทุนครบทุกรายการ",
         trend: todayFigures.changeTrend === "down" ? "down" : "up",
       },
+      withdrawable: example,
+      pending: example,
     },
   };
 
   const tiles: DashboardMetrics["tiles"] = {};
   for (const row of metricRows) {
     if (row.period) continue; // superseded by `periods`, computed above
+    // stock value is at cost, and cost is the owner's (PIN-0028)
+    if (row.scope === "stock" && row.metricKey === "value" && !isOwner) continue;
     const override = computed[row.scope]?.[row.metricKey];
-    const trend = override ? override.trend : row.trend && row.trend !== "neutral" ? row.trend : undefined;
+    // an example keeps its stored figure, labelled; a computed one replaces it
+    const isExample = override?.example === true;
+    const trend = override && !isExample ? override.trend : row.trend && row.trend !== "neutral" ? row.trend : undefined;
     (tiles[row.scope] ??= []).push({
       key: row.metricKey,
-      label: override?.label ?? row.label,
-      value: override?.value ?? render(row),
-      note: override?.note ?? row.note ?? "",
+      label: (!isExample && override?.label) || row.label,
+      value: (!isExample && override?.value) || render(row),
+      note: isExample ? row.note ?? "" : override?.note ?? row.note ?? "",
       ...(trend ? { trend } : {}),
+      ...(isExample ? { example: true } : {}),
     });
   }
 
@@ -413,13 +467,29 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
   const barHeight = (satang: number) =>
     today.salesSatang > 0 ? Math.max(2, Math.round((satang / today.salesSatang) * 72)) : 0;
 
+  const tallest = Math.max(1, ...weekly.map((week) => Math.max(week.salesSatang - week.cogsSatang - week.adsSatang, week.cogsSatang)));
+  const pct = (satang: number) => Math.max(0, Math.round((satang / tallest) * 100));
+  const todayLabel = isToday ? "วันนี้" : ` วันที่ ${formatThaiDay(anchorIso)}`;
+
   return {
     asOf: {
       time: formatTime(anchorIso),
       day: formatThaiDay(anchorIso),
       isToday,
       synced: performance.synced,
+      date: bangkokDay(anchorIso),
     },
+    kickers: {
+      orders: `${todayFigures.orders} ออเดอร์${todayLabel}`,
+      inbox: `${figures.unread.toLocaleString("en-US")} ข้อความรอตอบ`,
+      stock: `สินค้า ${stock.length.toLocaleString("en-US")} รายการ`,
+      customers: `ลูกค้า ${figures.customers.toLocaleString("en-US")} คนใน 60 วัน`,
+    },
+    weekly: weekly.map((week) => ({
+      label: formatThaiDay(new Date(week.endsAt).toISOString()),
+      profit: pct(week.salesSatang - week.cogsSatang - week.adsSatang),
+      cost: pct(week.cogsSatang),
+    })),
     periods,
     uncosted: performance.uncosted,
     tiles,
@@ -453,13 +523,60 @@ export async function listDashboardMetrics(session: SessionUser): Promise<Dashbo
       { label: "โฆษณา", amount: `−${formatCompactBaht(today.adsSatang)}`, kind: "ads", height: barHeight(today.adsSatang) },
       { label: "กำไร", amount: `${profit < 0 ? "−" : ""}${formatCompactBaht(Math.abs(profit))}`, kind: "profit", height: barHeight(Math.abs(profit)) },
     ],
-    restock: restockRows.map((row) => ({ name: row.name, quantity: `+${row.quantity} ชิ้น` })),
-    opportunities: opportunityRows.map((row) => ({
-      name: row.name,
-      metric: `ขายเพิ่ม ${formatPercent(row.growthPercent)}`,
-      profit: `กำไร ${formatBaht(row.profitSatang)}`,
-      accent: row.accent,
-    })),
+    // the brief's quantities: enough for 14 days at the current rate
+    restock: stock
+      .filter((row) => row.status !== "พร้อมขาย" && velocity.get(row.productId))
+      .map((row) => ({ name: row.name, quantity: `+${restockQuantity(row.onHand, velocity.get(row.productId)!.unitsPerDay).toLocaleString("en-US")} ชิ้น` })),
+    // sales this week against last, and the week's profit before ads where every unit is costed
+    opportunities: stock
+      .map((row) => ({ row, now: velocity.get(row.productId), before: priorVelocity.get(row.productId) }))
+      .filter((entry) => entry.now && entry.before && entry.before.revenuePerDaySatang > 0)
+      .map((entry) => ({ ...entry, growth: (entry.now!.revenuePerDaySatang / entry.before!.revenuePerDaySatang - 1) * 100 }))
+      .sort((a, b) => b.growth - a.growth)
+      .slice(0, 3)
+      .map((entry, rank) => ({
+        name: entry.row.name,
+        metric: `${entry.growth >= 0 ? "ขายเพิ่ม" : "ขายลดลง"} ${formatPercent(Math.abs(entry.growth))} จากสัปดาห์ก่อน`,
+        // per-product profit and units would give away unit cost, which is the owner's (PIN-0028)
+        profit: !isOwner
+          ? `ยอดขาย ${formatBaht(entry.now!.revenuePerDaySatang * 7)} / 7 วัน`
+          : entry.now!.uncostedUnits > 0
+            ? "ยังไม่มีต้นทุน คิดกำไรไม่ได้"
+            : `กำไรก่อนโฆษณา ${formatBaht((entry.now!.revenuePerDaySatang - entry.now!.cogsPerDaySatang) * 7)} / 7 วัน`,
+        accent: ["cream", "amber", "blue"][rank],
+      })),
+  };
+}
+
+/** Counts the headings and tiles quote (PIN-0030): unread messages, today's messages, customers in 60 days. */
+async function shopFigures(
+  session: SessionUser,
+  anchor: number
+): Promise<{ unread: number; unreadChats: number; messagesToday: number; customers: number }> {
+  const db = getDb();
+  const dayStart = new Date(bangkokDayStart(anchor)).toISOString();
+  const [[unread], [today], [customers]] = await Promise.all([
+    db
+      .select({
+        messages: sql<number>`coalesce(sum(${conversations.unreadCount}), 0)`.as("messages"),
+        chats: sql<number>`coalesce(sum(case when ${conversations.unreadCount} > 0 then 1 else 0 end), 0)`.as("chats"),
+      })
+      .from(conversations)
+      .where(eq(conversations.shopId, session.shopId)),
+    db
+      .select({ n: sql<number>`count(*)`.as("n") })
+      .from(messages)
+      .where(and(eq(messages.shopId, session.shopId), sql`${messages.sentAt} >= ${dayStart}`, lte(messages.sentAt, new Date(anchor).toISOString()))),
+    db
+      .select({ n: sql<number>`count(distinct ${orders.customerName})`.as("n") })
+      .from(orders)
+      .where(and(eq(orders.shopId, session.shopId), sql`${orders.placedAt} > ${new Date(anchor - 60 * 24 * 60 * 60_000).toISOString()}`, lte(orders.placedAt, new Date(anchor).toISOString()))),
+  ]);
+  return {
+    unread: Number(unread?.messages ?? 0),
+    unreadChats: Number(unread?.chats ?? 0),
+    messagesToday: Number(today?.n ?? 0),
+    customers: Number(customers?.n ?? 0),
   };
 }
 

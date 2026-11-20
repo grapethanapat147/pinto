@@ -19,7 +19,7 @@ import {
 import { ActionToneIcon } from "./ActionToneIcon";
 import { EmptyState } from "./EmptyState";
 import { OnboardingChecklist } from "./OnboardingChecklist";
-import { StatusPill } from "./StatusPill";
+import { ExampleTag, StatusPill } from "./StatusPill";
 import { trendArrow } from "../format";
 import type { DashboardMetrics, Notify, Payout, ShopAction, Trend, View } from "../types";
 
@@ -32,11 +32,13 @@ export function TodayView({ period, signedInAs, checklistClosed, actions, metric
   const comparedWith = period === "วันนี้" ? "จากช่วงเดียวกันเมื่อวาน" : "จากช่วงก่อนหน้า";
   const changeNote = (text: string, trend: Trend) => `${trendArrow(trend)} ${text} ${comparedWith}`;
   const tile = (key: string) => metrics.tiles.today?.find((item) => item.key === key);
-  const bars = [42, 76, 58, 88, 64, 82];
-  const costs = [28, 44, 38, 52, 35, 46];
-  const months = ["มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค."];
-  const [selectedDay, setSelectedDay] = useState(25);
-  const calendarDays = Array.from({ length: 31 }, (_, index) => index + 1);
+  // The calendar shows the month the data is from (PIN-0030), laid out under the right weekday.
+  const [year, month, anchorDay] = asOf.date.split("-").map(Number);
+  const monthName = new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric", timeZone: "UTC" }).format(Date.UTC(year, month - 1, 1));
+  const leadingBlanks = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const calendarDays = Array.from({ length: new Date(Date.UTC(year, month, 0)).getUTCDate() }, (_, index) => index + 1);
+  const payoutDays = new Set(payouts.filter((payout) => payout.expectedOn.startsWith(asOf.date.slice(0, 7))).map((payout) => Number(payout.expectedOn.slice(8, 10))));
+  const [selectedDay, setSelectedDay] = useState(anchorDay);
 
   return (
     <>
@@ -59,12 +61,13 @@ export function TodayView({ period, signedInAs, checklistClosed, actions, metric
                 </div>
                 <span>{freshness}</span>
               </div>
-              <div className="sales-legend"><span><i className="profit-key" />กำไร</span><span><i className="cost-key" />ต้นทุนรวม</span></div>
-              <div className="paired-chart" aria-label="กราฟเปรียบเทียบกำไรและต้นทุน 6 เดือน">
-                {bars.map((bar, index) => (
-                  <div className="paired-chart-group" key={months[index]}>
-                    <div><i style={{ height: `${bar}%` }} /><b style={{ height: `${costs[index]}%` }} /></div>
-                    <span>{months[index]}</span>
+              <div className="sales-legend"><span><i className="profit-key" />กำไร</span><span><i className="cost-key" />ต้นทุนสินค้า</span></div>
+              {/* weekly, from orders: only sixty days exist, so six months cannot be drawn (PIN-0030) */}
+              <div className="paired-chart" aria-label="กราฟกำไรเทียบต้นทุนสินค้า รายสัปดาห์ 8 สัปดาห์ล่าสุด">
+                {metrics.weekly.map((week) => (
+                  <div className="paired-chart-group" key={week.label}>
+                    <div><i style={{ height: `${week.profit}%` }} /><b style={{ height: `${week.cost}%` }} /></div>
+                    <span>{week.label}</span>
                   </div>
                 ))}
               </div>
@@ -73,7 +76,7 @@ export function TodayView({ period, signedInAs, checklistClosed, actions, metric
             <div className="snapshot-stack" aria-label="ตัวเลขสำคัญ">
               <article className="snapshot-card"><span className="snapshot-icon"><BadgeDollarSign size={20} /></span><div><p>{tile("sales_note")?.label}</p><h3>{data.sales}</h3><small className={data.salesTrend === "down" ? "down" : "up"}>{changeNote(data.salesChange, data.salesTrend)}</small></div></article>
               <article className="snapshot-card"><span className="snapshot-icon"><PackageCheck size={20} /></span><div><p>{tile("orders_note")?.label}</p><h3>{data.orders}</h3><small className={data.ordersTrend === "down" ? "down" : "up"}>{changeNote(data.ordersChange, data.ordersTrend)}</small></div></article>
-              <article className="snapshot-card"><span className="snapshot-icon"><Clock3 size={20} /></span><div><p>{tile("pending_payout")?.label}</p><h3>{tile("pending_payout")?.value}</h3><small className="warning-text">{tile("pending_payout")?.note}</small></div></article>
+              <article className="snapshot-card"><span className="snapshot-icon"><Clock3 size={20} /></span><div><p>{tile("pending_payout")?.label}{tile("pending_payout")?.example && <> <ExampleTag /></>}</p><h3>{tile("pending_payout")?.value}</h3><small className="warning-text">{tile("pending_payout")?.note}</small></div></article>
             </div>
           </section>
 
@@ -113,16 +116,17 @@ export function TodayView({ period, signedInAs, checklistClosed, actions, metric
 
         <aside className="right-rail">
           <section className="panel calendar-panel">
-            <div className="calendar-head"><button aria-label="เดือนก่อนหน้า" onClick={() => notify("ตัวอย่าง — ปฏิทินเดโมมีเฉพาะสิงหาคม 2569", "demo")}><ChevronLeft size={19} /></button><strong>สิงหาคม 2569</strong><button aria-label="เดือนถัดไป" onClick={() => notify("ตัวอย่าง — ปฏิทินเดโมมีเฉพาะสิงหาคม 2569", "demo")}><ChevronRight size={19} /></button></div>
+            <div className="calendar-head"><button aria-label="เดือนก่อนหน้า" onClick={() => notify("ตัวอย่าง — ปฏิทินแสดงเฉพาะเดือนของข้อมูลล่าสุด", "demo")}><ChevronLeft size={19} /></button><strong>{monthName}</strong><button aria-label="เดือนถัดไป" onClick={() => notify("ตัวอย่าง — ปฏิทินแสดงเฉพาะเดือนของข้อมูลล่าสุด", "demo")}><ChevronRight size={19} /></button></div>
             <div className="weekdays">{["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"].map((day) => <span key={day}>{day}</span>)}</div>
             <div className="calendar-grid">
-              {calendarDays.map((day) => <button key={day} className={`${selectedDay === day ? "selected" : ""} ${[22, 26, 28].includes(day) ? "has-event" : ""}`} onClick={() => setSelectedDay(day)}>{day}</button>)}
+              {Array.from({ length: leadingBlanks }, (_, index) => <span key={`blank-${index}`} aria-hidden="true" />)}
+              {calendarDays.map((day) => <button key={day} className={`${selectedDay === day ? "selected" : ""} ${payoutDays.has(day) ? "has-event" : ""}`} aria-label={payoutDays.has(day) ? `${day} — มีเงินเข้า` : undefined} onClick={() => setSelectedDay(day)}>{day}</button>)}
             </div>
-            <button className="calendar-cta icon-text-button" onClick={() => notify(`ตัวอย่าง — กำหนดการวันที่ ${selectedDay} สิงหาคม ยังไม่เปิดใช้งาน`, "demo")}><CalendarDays size={16} />ดูวันที่ {selectedDay} สิงหาคม</button>
+            <button className="calendar-cta icon-text-button" onClick={() => notify(`ตัวอย่าง — กำหนดการวันที่ ${selectedDay} ยังไม่เปิดใช้งาน`, "demo")}><CalendarDays size={16} />ดูวันที่ {selectedDay} {monthName}</button>
           </section>
 
           {canSeeFinance && <section className="payout-schedule">
-            <div className="rail-heading"><h3>เงินที่กำลังจะเข้า</h3><button className="icon-text-button" onClick={() => notify("ตัวอย่าง — หน้ากำหนดการรับเงินยังไม่เปิดใช้งาน", "demo")}>ดูทั้งหมด <ArrowRight size={14} /></button></div>
+            <div className="rail-heading"><h3>เงินที่กำลังจะเข้า <ExampleTag /></h3><button className="icon-text-button" onClick={() => notify("ตัวอย่าง — หน้ากำหนดการรับเงินยังไม่เปิดใช้งาน", "demo")}>ดูทั้งหมด <ArrowRight size={14} /></button></div>
             {payouts.map((payout, index) => (
               <article key={payout.platform}><i className={`channel-logo ${payout.accent}`}>{payout.platform[0]}</i><div><strong>{payout.platform}</strong><span>{index === 0 ? "พรุ่งนี้" : payout.date} · {payout.orders}</span></div><b>{payout.amount}</b></article>
             ))}

@@ -1243,6 +1243,121 @@ test("closing the checklist is stored for good, and only an owner can", async ()
   });
 });
 
+/** PIN-0030: the literals that had data behind them are computed; the rest say "ตัวอย่าง". */
+test("headings and tiles quote the shop's own counts", async () => {
+  await withFreshDb(async (db) => {
+    const { listDashboardMetrics, listInventory } = await import("../db/queries.ts");
+    const metrics = await listDashboardMetrics(ownerSession);
+    const anchor = await anchorOf(db);
+    const one = async (sql, ...args) => (await db.prepare(sql).bind(...args).first()).n;
+
+    const products = await one("SELECT COUNT(*) AS n FROM products");
+    const unread = await one("SELECT SUM(unread_count) AS n FROM conversations");
+    const customers = await one(
+      "SELECT COUNT(DISTINCT customer_name) AS n FROM orders WHERE placed_at > ? AND placed_at <= ?",
+      new Date(anchor - 60 * 86_400_000).toISOString(), new Date(anchor).toISOString()
+    );
+    assert.equal(metrics.kickers.stock, `สินค้า ${products} รายการ`, "not 186");
+    assert.equal(metrics.kickers.inbox, `${unread} ข้อความรอตอบ`, "not 12");
+    assert.equal(metrics.kickers.customers, `ลูกค้า ${customers.toLocaleString("en-US")} คนใน 60 วัน`, "not 3,842");
+
+    const tile = (scope, key) => metrics.tiles[scope].find((item) => item.key === key);
+    assert.equal(tile("today", "quick_reply").note, `${unread} ข้อความรอตอบ`);
+
+    // stock tiles count the same statuses the Stock table shows
+    const inventory = await listInventory(ownerSession);
+    const count = (status) => inventory.filter((item) => item.status === status).length;
+    assert.equal(tile("stock", "sellable").value, String(count("พร้อมขาย")));
+    assert.equal(tile("stock", "low").value, String(count("ใกล้หมด")));
+    assert.equal(tile("stock", "out").value, String(count("หมดสต๊อก")));
+    assert.equal(tile("today", "quick_restock").note, `${count("ใกล้หมด") + count("หมดสต๊อก")} รายการใกล้หมดหรือหมด`);
+    const value = await one("SELECT SUM(i.on_hand * p.unit_cost_satang) AS n FROM inventory_levels i JOIN products p ON p.id = i.product_id WHERE p.unit_cost_satang IS NOT NULL");
+    assert.equal(tile("stock", "value").value, baht(value), "stock value at cost");
+
+    // stock value is cost, so staff do not get it
+    const staff = await listDashboardMetrics(staffSession);
+    assert.ok(!staff.tiles.stock.some((item) => item.key === "value"));
+  });
+});
+
+test("figures with no data behind them are labelled ตัวอย่าง, and the ROAS target is gone", async () => {
+  const { listDashboardMetrics } = await import("../db/queries.ts");
+  const metrics = await listDashboardMetrics(ownerSession);
+  const tile = (scope, key) => metrics.tiles[scope].find((item) => item.key === key);
+  for (const [scope, key] of [["today", "pending_payout"], ["money", "withdrawable"], ["money", "pending"], ["inbox", "response_time"], ["inbox", "chat_sales"], ["growth", "ad_sales"], ["growth", "ad_profit"]]) {
+    assert.equal(tile(scope, key).example, true, `${scope}.${key} has no data behind it`);
+  }
+  for (const [scope, key] of [["stock", "sellable"], ["inbox", "waiting"], ["growth", "ad_spend"], ["growth", "roas"]]) {
+    assert.ok(!tile(scope, key).example, `${scope}.${key} is computed`);
+  }
+  assert.doesNotMatch(tile("growth", "roas").note, /เป้า/, "there is no ROAS target to beat");
+
+  const html = stripComments(await (await render()).text());
+  assert.match(html, /เงินที่กำลังจะเข้า <span class="status-pill demo">ตัวอย่าง<\/span>/, "the payout rail is labelled");
+});
+
+test("the chart is eight computed weeks, and the calendar shows the data's month", async () => {
+  await withFreshDb(async (db) => {
+    const { weeklySeries } = await import("../db/performance.ts");
+    const anchor = await anchorOf(db);
+    const weeks = await weeklySeries(ownerSession, anchor, 8);
+    assert.equal(weeks.length, 8);
+    const sales = async (from, to) =>
+      (await db.prepare("SELECT COALESCE(SUM(total_satang), 0) AS n FROM orders WHERE placed_at > ? AND placed_at <= ?")
+        .bind(new Date(from).toISOString(), new Date(to).toISOString()).first()).n;
+    assert.equal(weeks[7].salesSatang, await sales(anchor - 7 * 86_400_000, anchor), "the last bar is the seven days to the anchor");
+    assert.equal(weeks.reduce((sum, week) => sum + week.salesSatang, 0), await sales(anchor - 56 * 86_400_000, anchor), "no order lost or counted twice");
+
+    const { listDashboardMetrics } = await import("../db/queries.ts");
+    const metrics = await listDashboardMetrics(ownerSession);
+    assert.equal(metrics.weekly.length, 8);
+    assert.equal(Math.max(...metrics.weekly.flatMap((week) => [week.profit, week.cost])), 100, "the tallest bar fills the chart");
+
+    const [year, month] = metrics.asOf.date.split("-").map(Number);
+    const monthName = new Intl.DateTimeFormat("th-TH", { month: "long", year: "numeric", timeZone: "UTC" }).format(Date.UTC(year, month - 1, 1));
+    const html = stripComments(await (await render("/", { cookie: await signIn() })).text());
+    assert.match(html, new RegExp(monthName), "the anchor's month");
+    if (month !== 8) assert.doesNotMatch(html, /สิงหาคม 2569/, "not the hard-coded August");
+    assert.doesNotMatch(html, /มี\.ค\.<\/span>/, "not the six hard-coded months");
+  });
+});
+
+test("restock quantities and product trends come from sales", async () => {
+  await withFreshDb(async (db) => {
+    const { listDashboardMetrics } = await import("../db/queries.ts");
+    const { listBrief } = await import("../db/brief.ts");
+    const metrics = await listDashboardMetrics(ownerSession);
+    const cards = await listBrief(ownerSession);
+
+    // Stock's "สั่งเพิ่ม" list and the brief recommend the same quantity for the same product
+    for (const item of metrics.restock) {
+      const card = cards.find((entry) => entry.title.startsWith(item.name));
+      assert.ok(card, `${item.name} is on the list, so the brief flags it too`);
+      const qty = item.quantity.match(/[\d,]+/)[0];
+      assert.match(card.recommendation, new RegExp(`อย่างน้อย ${qty} ชิ้น`));
+    }
+    assert.ok(!metrics.restock.some((item) => /^\+(90|45|60) ชิ้น$/.test(item.quantity) && item.name === "แจกันเซรามิกสีครีม"), "not the typed +90");
+
+    // the top trend's percentage, worked out here in SQL
+    const anchor = await anchorOf(db);
+    const top = metrics.opportunities[0];
+    const revenue = async (from, to) =>
+      (await db.prepare(
+        "SELECT SUM(l.quantity * l.unit_price_satang) AS n FROM order_lines l JOIN orders o ON o.id = l.order_id JOIN products p ON p.id = l.product_id WHERE p.name = ? AND o.placed_at > ? AND o.placed_at <= ?"
+      ).bind(top.name, new Date(from).toISOString(), new Date(to).toISOString()).first()).n;
+    const week = 7 * 86_400_000;
+    const growth = ((await revenue(anchor - week, anchor)) / (await revenue(anchor - 2 * week, anchor - week)) - 1) * 100;
+    assert.match(top.metric, new RegExp(`${Number(Math.abs(growth).toFixed(1))}%`));
+
+    // per-product profit would let staff work out unit cost, so they get sales instead —
+    // checked on every card, not only when an uncosted product happens to rank
+    const staff = await listDashboardMetrics(staffSession);
+    assert.ok(staff.opportunities.length > 0);
+    for (const card of staff.opportunities) assert.match(card.profit, /^ยอดขาย ฿[\d,]+ \/ 7 วัน$/, `staff got "${card.profit}"`);
+    assert.ok(metrics.opportunities.every((card) => /กำไร|ต้นทุน/.test(card.profit)), "the owner keeps profit");
+  });
+});
+
 test("staff never receive finance data, owners do", async () => {
   const ownerHtml = await (await render("/", { cookie: await signIn("owner") })).text();
   const staffHtml = await (await render("/", { cookie: await signIn("staff") })).text();

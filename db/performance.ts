@@ -17,7 +17,7 @@
  *    with every profit figure, and anything under 100% is labelled. Fees and shipping are not
  *    known until a marketplace supplies them; the screen says so rather than guessing.
  */
-import { and, eq, gte, isNull, lte, max, sql, type SQL } from "drizzle-orm";
+import { and, eq, gt, gte, isNull, lte, max, sql, type SQL } from "drizzle-orm";
 
 import { getDb } from "./index";
 import { adSpendDaily, channelHealth, orderLines, orders, products } from "./schema";
@@ -136,19 +136,21 @@ export const VELOCITY_DAYS = 7;
 export async function salesVelocity(
   session: SessionUser,
   anchor: number
-): Promise<Map<number, { unitsPerDay: number; revenuePerDaySatang: number }>> {
+): Promise<Map<number, { unitsPerDay: number; revenuePerDaySatang: number; cogsPerDaySatang: number; uncostedUnits: number }>> {
   const rows = await getDb()
     .select({
       productId: orderLines.productId,
       units: sql<number>`sum(${orderLines.quantity})`.as("units"),
       revenue: sql<number>`sum(${orderLines.quantity} * ${orderLines.unitPriceSatang})`.as("revenue"),
+      cogs: sql<number>`coalesce(sum(${orderLines.quantity} * ${orderLines.unitCostSatang}), 0)`.as("cogs"),
+      uncosted: sql<number>`coalesce(sum(case when ${orderLines.unitCostSatang} is null then ${orderLines.quantity} end), 0)`.as("uncosted"),
     })
     .from(orderLines)
     .innerJoin(orders, eq(orders.id, orderLines.orderId))
     .where(
       and(
         eq(orders.shopId, session.shopId),
-        gte(orders.placedAt, iso(anchor - VELOCITY_DAYS * DAY_MS)),
+        gt(orders.placedAt, iso(anchor - VELOCITY_DAYS * DAY_MS)),
         lte(orders.placedAt, iso(anchor))
       )
     )
@@ -156,9 +158,58 @@ export async function salesVelocity(
   return new Map(
     rows.map((row) => [
       row.productId,
-      { unitsPerDay: Number(row.units) / VELOCITY_DAYS, revenuePerDaySatang: Number(row.revenue) / VELOCITY_DAYS },
+      {
+        unitsPerDay: Number(row.units) / VELOCITY_DAYS,
+        revenuePerDaySatang: Number(row.revenue) / VELOCITY_DAYS,
+        cogsPerDaySatang: Number(row.cogs) / VELOCITY_DAYS,
+        uncostedUnits: Number(row.uncosted),
+      },
     ])
   );
+}
+
+/**
+ * Profit and cost of goods per week for the last `weeks` weeks up to the anchor, oldest first
+ * (PIN-0030) — the Today chart, which used to be six hard-coded months when only sixty days of
+ * orders exist. Week 0 is the seven days ending at the anchor. A day's ad spend counts in the
+ * week its Bangkok day starts in.
+ */
+export async function weeklySeries(
+  session: SessionUser,
+  anchor: number,
+  weeks: number
+): Promise<{ endsAt: number; salesSatang: number; cogsSatang: number; adsSatang: number }[]> {
+  const db = getDb();
+  const from = anchor - weeks * 7 * DAY_MS;
+  const weekOf = sql<number>`cast((julianday(${iso(anchor)}) - julianday(${orders.placedAt})) / 7 as integer)`;
+  const range = and(eq(orders.shopId, session.shopId), gt(orders.placedAt, iso(from)), lte(orders.placedAt, iso(anchor)));
+  const [sales, cogs, ads] = await Promise.all([
+    db.select({ week: weekOf.as("week"), v: sql<number>`sum(${orders.totalSatang})`.as("v") }).from(orders).where(range).groupBy(weekOf),
+    db
+      .select({ week: weekOf.as("week"), v: sql<number>`coalesce(sum(${orderLines.quantity} * ${orderLines.unitCostSatang}), 0)`.as("v") })
+      .from(orderLines)
+      .innerJoin(orders, eq(orders.id, orderLines.orderId))
+      .where(range)
+      .groupBy(weekOf),
+    db
+      .select({ day: adSpendDaily.day, v: adSpendDaily.spendSatang })
+      .from(adSpendDaily)
+      .where(and(eq(adSpendDaily.shopId, session.shopId), gte(adSpendDaily.day, bangkokDate(from)), lte(adSpendDaily.day, bangkokDate(anchor)))),
+  ]);
+  const series = Array.from({ length: weeks }, (_, index) => ({
+    endsAt: anchor - (weeks - 1 - index) * 7 * DAY_MS,
+    salesSatang: 0,
+    cogsSatang: 0,
+    adsSatang: 0,
+  }));
+  const at = (week: number) => series[weeks - 1 - week];
+  for (const row of sales) if (at(Number(row.week))) at(Number(row.week)).salesSatang += Number(row.v);
+  for (const row of cogs) if (at(Number(row.week))) at(Number(row.week)).cogsSatang += Number(row.v);
+  for (const row of ads) {
+    const week = Math.floor((anchor - Date.parse(`${row.day}T00:00:00+07:00`)) / (7 * DAY_MS));
+    if (at(week)) at(week).adsSatang += row.v;
+  }
+  return series;
 }
 
 export async function loadPerformance(session: SessionUser): Promise<Performance> {
