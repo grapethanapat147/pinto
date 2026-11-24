@@ -33,3 +33,4 @@
 | PIN-0031 | Computed Action Center | 9 |
 | PIN-0028 | Edit unit cost on the Stock view | 9 |
 | PIN-0032 | New-seller checklist | 9 |
+| PIN-0030 | The figures PIN-0027 left seeded | 9 |
